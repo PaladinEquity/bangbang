@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from './LoadingSpinner';
-import Image from 'next/image';
 
 interface ImageSelectorProps {
   images: string[];
@@ -49,132 +48,96 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, onImageSelect, is
 
   // Image click handlers
   const image1_onclick = () => {
-    if (imageUrlMap.image1) {
-      handleImageSelectButtonTransitions('image1', imageUrlMap.image1);
-    } else {
+    if (!imageUrlMap.image1) {
       handleImageNotYetReadyToEnhance();
+      return;
     }
+    
+    setSelectedImage('image1');
+    handleImageSelectButtonTransitions('image1', imageUrlMap.image1);
   };
 
   const image2_onclick = () => {
-    if (imageUrlMap.image2) {
-      handleImageSelectButtonTransitions('image2', imageUrlMap.image2);
-    } else {
+    if (!imageUrlMap.image2) {
       handleImageNotYetReadyToEnhance();
+      return;
     }
+    
+    setSelectedImage('image2');
+    handleImageSelectButtonTransitions('image2', imageUrlMap.image2);
   };
 
   const image3_onclick = () => {
-    if (imageUrlMap.image3) {
-      handleImageSelectButtonTransitions('image3', imageUrlMap.image3);
-    } else {
+    if (!imageUrlMap.image3) {
       handleImageNotYetReadyToEnhance();
+      return;
     }
+    
+    setSelectedImage('image3');
+    handleImageSelectButtonTransitions('image3', imageUrlMap.image3);
   };
 
   const image4_onclick = () => {
-    if (imageUrlMap.image4) {
-      handleImageSelectButtonTransitions('image4', imageUrlMap.image4);
-    } else {
+    if (!imageUrlMap.image4) {
       handleImageNotYetReadyToEnhance();
+      return;
     }
+    
+    setSelectedImage('image4');
+    handleImageSelectButtonTransitions('image4', imageUrlMap.image4);
+  };
+
+  // Go back to product page
+  const goToProductPage = () => {
+    router.push('/product-page');
   };
 
   return (
     <div className="w-full">
-      {isGenerating ? (
-        <div className="flex flex-col items-center justify-center p-8">
-          <LoadingSpinner size="large" text="Generating your wallpaper designs..." />
-        </div>
-      ) : (
-        <div>
-          {statusMessage && (
-            <div className="text-center text-sm text-blue-600 mb-4 animate-fade-in">
-              {statusMessage}
-            </div>
-          )}
-          
-          {images.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div 
-                className={`relative aspect-square cursor-pointer overflow-hidden rounded-lg border-2 transition-all duration-300 ${selectedImage === imageUrlMap.image1 ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}
-                onClick={image1_onclick}
-              >
-                {imageUrlMap.image1 ? (
-                  <Image 
-                    src={imageUrlMap.image1} 
-                    alt="Generated wallpaper design 1" 
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center bg-gray-100">
-                    <span className="text-gray-400">Loading...</span>
-                  </div>
-                )}
-              </div>
-              
-              <div 
-                className={`relative aspect-square cursor-pointer overflow-hidden rounded-lg border-2 transition-all duration-300 ${selectedImage === imageUrlMap.image2 ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}
-                onClick={image2_onclick}
-              >
-                {imageUrlMap.image2 ? (
-                  <Image 
-                    src={imageUrlMap.image2} 
-                    alt="Generated wallpaper design 2" 
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center bg-gray-100">
-                    <span className="text-gray-400">Loading...</span>
-                  </div>
-                )}
-              </div>
-              
-              <div 
-                className={`relative aspect-square cursor-pointer overflow-hidden rounded-lg border-2 transition-all duration-300 ${selectedImage === imageUrlMap.image3 ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}
-                onClick={image3_onclick}
-              >
-                {imageUrlMap.image3 ? (
-                  <Image 
-                    src={imageUrlMap.image3} 
-                    alt="Generated wallpaper design 3" 
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center bg-gray-100">
-                    <span className="text-gray-400">Loading...</span>
-                  </div>
-                )}
-              </div>
-              
-              <div 
-                className={`relative aspect-square cursor-pointer overflow-hidden rounded-lg border-2 transition-all duration-300 ${selectedImage === imageUrlMap.image4 ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}
-                onClick={image4_onclick}
-              >
-                {imageUrlMap.image4 ? (
-                  <Image 
-                    src={imageUrlMap.image4} 
-                    alt="Generated wallpaper design 4" 
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center bg-gray-100">
-                    <span className="text-gray-400">Loading...</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center p-8 border border-dashed border-gray-300 rounded-lg">
-              <p className="text-gray-500">No images generated yet. Start by entering a prompt and clicking generate.</p>
-            </div>
-          )}
+      {statusMessage && (
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+          {statusMessage}
         </div>
       )}
+      
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {images.map((imageUrl, index) => {
+          const imageKey = `image${index + 1}` as keyof ImageUrlMap;
+          const onClick = {
+            'image1': image1_onclick,
+            'image2': image2_onclick,
+            'image3': image3_onclick,
+            'image4': image4_onclick,
+          }[imageKey];
+          
+          return (
+            <div 
+              key={index} 
+              className={`cursor-pointer border-2 rounded-lg overflow-hidden transition-all duration-300 transform hover:scale-105 ${selectedImage === imageKey ? 'border-black shadow-lg' : 'border-transparent'}`}
+              onClick={onClick}
+            >
+              {isGenerating ? (
+                <div className="w-full h-64 flex items-center justify-center bg-gray-100">
+                  <LoadingSpinner size="large" color="#4B5563" />
+                </div>
+              ) : (
+                <>
+                  <img 
+                    src={imageUrl} 
+                    alt={`Generated wallpaper ${index + 1}`} 
+                    className="w-full h-auto transition-opacity duration-300" 
+                    onLoad={(e) => (e.target as HTMLImageElement).style.opacity = '1'}
+                    style={{ opacity: 0 }}
+                  />
+                  <div className="p-2 text-center bg-white transition-colors duration-300">
+                    <p>Image {index + 1}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

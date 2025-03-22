@@ -1,33 +1,30 @@
 'use client';
 
-import React from 'react';
-
 interface LoadingSpinnerProps {
   size?: 'small' | 'medium' | 'large';
   color?: string;
-  text?: string;
 }
 
 const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ 
-  size = 'medium', 
-  color = 'blue-500',
-  text
+  size = 'medium',
+  color = '#000000'
 }) => {
-  // Size mapping
   const sizeMap = {
-    small: 'w-4 h-4 border-2',
-    medium: 'w-8 h-8 border-3',
-    large: 'w-12 h-12 border-4'
+    small: 'w-6 h-6',
+    medium: 'w-10 h-10',
+    large: 'w-16 h-16'
   };
 
   return (
-    <div className="flex flex-col items-center justify-center">
+    <div className="flex justify-center items-center">
       <div
-        className={`${sizeMap[size]} rounded-full border-t-transparent border-${color} animate-spin`}
+        className={`${sizeMap[size]} animate-spin rounded-full border-4 border-t-transparent`}
+        style={{ borderColor: `${color} transparent transparent transparent` }}
         role="status"
         aria-label="loading"
-      ></div>
-      {text && <p className="mt-2 text-sm text-gray-600">{text}</p>}
+      >
+        <span className="sr-only">Loading...</span>
+      </div>
     </div>
   );
 };

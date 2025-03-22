@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import AccountTabs from '@/components/AccountTabs';
+import AccountTabs from '../../components/AccountTabs';
 
 // Import components from existing pages
-import MyAccountContent from '@/components/account/MyAccountContent';
-import MyOrdersContent from '@/components/account/MyOrdersContent';
-import MyAddressesContent from '@/components/account/MyAddressesContent';
-import MyWalletContent from '@/components/account/MyWalletContent';
+import MyAccountContent from '../../components/account/MyAccountContent';
+import MyOrdersContent from '../../components/account/MyOrdersContent';
+import MyAddressesContent from '../../components/account/MyAddressesContent';
+import MyWalletContent from '../../components/account/MyWalletContent';
 
 function AccountPageContent() {
   const searchParams = useSearchParams();

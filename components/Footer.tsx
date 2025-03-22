@@ -17,6 +17,7 @@ const Footer = () => {
             transition={{ duration: 0.5 }}
             className="flex items-center"
           >
+            <Image src="/operations.png" alt="Operations" width={30} height={30} />
             <span className="ml-2 text-lg font-medium">Operations</span>
           </motion.div>
           {/* First column - Contact info */}
@@ -60,6 +61,7 @@ const Footer = () => {
         >
           <Link href="/write-to-us" className="flex items-center group">
             <span className="font-medium mr-2 text-lg sm:text-xl group-hover:text-gray-700 transition-colors duration-200">Write to US</span>
+            <Image src="/writeUs.png" alt="Write to Us" width={46} height={46} />
           </Link>
         </motion.div>
       </div>
@@ -93,8 +95,22 @@ const Footer = () => {
         </div>
       </motion.div>
 
-      {/* Copyright */}
-      <div className="text-center text-sm text-gray-500">
+      {/* Payment Methods */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+        className="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-6 mb-8 items-center"
+      >
+        <div className="w-full max-w-md">
+          <Image className='w-full h-auto' src="/payment.png" alt="payment" width={500} height={80} />
+        </div>
+        <div className="w-full max-w-xs">
+          <Image className='w-full h-auto' src="/social.png" alt="social" width={230} height={80} />
+        </div>
+      </motion.div>
+
+      <div className="text-center text-sm text-gray-500 mt-8">
         <p>© {new Date().getFullYear()} BangBang Wallpaper. All rights reserved.</p>
       </div>
     </footer>

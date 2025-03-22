@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
@@ -100,137 +100,167 @@ const Header = () => {
             <AnimatePresence>
               {showMoreDropdown && (
                 <motion.div
-                  initial={{ opacity: 0, y: -10 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  exit={{ opacity: 0, y: 10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
+                  className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-10 overflow-hidden"
                 >
-                  <Link href="/about" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    About Us
-                  </Link>
-                  <Link href="/curated-products" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Curated Products
-                  </Link>
-                  <Link href="/try-me" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Try Me
-                  </Link>
+                  <div className="py-1">
+                    <Link href="/about" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">About Us</Link>
+                    <Link href="/try-me" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">Try Me</Link>
+                    <Link href="/curated-products" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">Curated Products</Link>
+                    <Link href="/privacy-policy" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">Privacy Policy</Link>
+                    <Link href="/terms-conditions" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">Terms & Conditions</Link>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
         </nav>
+      </div>
 
-        {/* User Account */}
-        <div className="ml-6 relative" ref={userDropdownRef}>
+      {/* User and Cart - Desktop */}
+      <div className="hidden md:flex items-center ml-4">
+        <div className="relative mr-4" ref={userDropdownRef}>
           <button
+            className="flex items-center text-neutral-700 hover:text-gray-900 transition-colors duration-200"
             onClick={toggleUserDropdown}
-            className="flex items-center text-gray-700 hover:text-gray-900 focus:outline-none"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor"/>
-            </svg>
-            <span className="ml-1 text-sm">Account</span>
+            <span className="mr-1">
+              <svg data-bbox="0 0 50 50" data-type="shape" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 50 50"><g><path d="M25 48.077c-5.924 0-11.31-2.252-15.396-5.921 2.254-5.362 7.492-8.267 15.373-8.267 7.889 0 13.139 3.044 15.408 8.418-4.084 3.659-9.471 5.77-15.385 5.77m.278-35.3c4.927 0 8.611 3.812 8.611 8.878 0 5.21-3.875 9.456-8.611 9.456s-8.611-4.246-8.611-9.456c0-5.066 3.684-8.878 8.611-8.878M25 0C11.193 0 0 11.193 0 25c0 .915.056 1.816.152 2.705.032.295.091.581.133.873.085.589.173 1.176.298 1.751.073.338.169.665.256.997.135.515.273 1.027.439 1.529.114.342.243.675.37 1.01.18.476.369.945.577 1.406.149.331.308.657.472.98.225.446.463.883.714 1.313.182.312.365.619.56.922.272.423.56.832.856 1.237.207.284.41.568.629.841.325.408.671.796 1.02 1.182.22.244.432.494.662.728.405.415.833.801 1.265 1.186.173.154.329.325.507.475l.004-.011A24.886 24.886 0 0 0 25 50a24.881 24.881 0 0 0 16.069-5.861.126.126 0 0 1 .003.01c.172-.144.324-.309.49-.458.442-.392.88-.787 1.293-1.209.228-.232.437-.479.655-.72.352-.389.701-.78 1.028-1.191.218-.272.421-.556.627-.838.297-.405.587-.816.859-1.24a26.104 26.104 0 0 0 1.748-3.216c.208-.461.398-.93.579-1.406.127-.336.256-.669.369-1.012.167-.502.305-1.014.44-1.53.087-.332.183-.659.256-.996.126-.576.214-1.164.299-1.754.042-.292.101-.577.133-.872.095-.89.152-1.791.152-2.707C50 11.193 38.807 0 25 0" fill="currentColor"></path></g></svg>
+            </span>
+            <span>Account</span>
           </button>
 
           <AnimatePresence>
             {showUserDropdown && (
               <motion.div
-                initial={{ opacity: 0, y: -10 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
+                exit={{ opacity: 0, y: 10 }}
                 transition={{ duration: 0.2 }}
-                className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
+                className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-10 overflow-hidden"
               >
-                <Link href="/account" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                  My Account
-                </Link>
-                <Link href="/account/login" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                  Login
-                </Link>
-                <Link href="/account/register" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                  Register
-                </Link>
+                <div className="py-1">
+                  <Link href="/account?tab=account" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">My Account</Link>
+                  <Link href="/account?tab=orders" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">My Orders</Link>
+                  <Link href="/account?tab=addresses" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">My Addresses</Link>
+                  <Link href="/account?tab=wallet" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">My Wallet</Link>
+                  <div className="border-t border-gray-100 my-1"></div>
+                  <Link href="/logout" className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition-colors duration-150">Logout</Link>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* Cart */}
-        <Link href="/cart" className="ml-4 flex items-center text-gray-700 hover:text-gray-900">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M7 18C5.9 18 5.01 18.9 5.01 20C5.01 21.1 5.9 22 7 22C8.1 22 9 21.1 9 20C9 18.9 8.1 18 7 18ZM17 18C15.9 18 15.01 18.9 15.01 20C15.01 21.1 15.9 22 17 22C18.1 22 19 21.1 19 20C19 18.9 18.1 18 17 18ZM7.17 14.75L7.2 14.63L8.1 13H15.55C16.3 13 16.96 12.59 17.3 11.97L21.16 4.96L19.42 4H19.41L18.31 6L15.55 11H8.53L8.4 10.73L6.16 6L5.21 4L4.27 2H1V4H3L6.6 11.59L5.25 14.04C5.09 14.32 5 14.65 5 15C5 16.1 5.9 17 7 17H19V15H7.42C7.29 15 7.17 14.89 7.17 14.75Z" fill="currentColor"/>
+        <Link href="/cart" className="flex items-center text-neutral-700 hover:text-gray-900 transition-colors duration-200">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
           </svg>
-          <span className="ml-1 text-sm">Cart</span>
         </Link>
       </div>
 
-      {/* Mobile menu button */}
+      {/* Mobile Menu Button */}
       <div className="md:hidden flex items-center">
         <button
           onClick={toggleMobileMenu}
-          className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none"
+          className="p-2 rounded-md text-gray-700 hover:text-gray-900 focus:outline-none"
+          aria-label="Toggle mobile menu"
         >
-          <svg
-            className={`${isMobileMenuOpen ? 'hidden' : 'block'} h-6 w-6`}
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-          <svg
-            className={`${isMobileMenuOpen ? 'block' : 'hidden'} h-6 w-6`}
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          {isMobileMenuOpen ? (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
         </button>
       </div>
     </div>
-  </div>
 
-  {/* Mobile menu */}
-  <AnimatePresence>
-    {isMobileMenuOpen && (
-      <motion.div
-        ref={mobileMenuRef}
-        initial={{ opacity: 0, height: 0 }}
-        animate={{ opacity: 1, height: 'auto' }}
-        exit={{ opacity: 0, height: 0 }}
-        transition={{ duration: 0.3 }}
-        className="md:hidden bg-white border-t border-gray-200"
-      >
-        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-          <Link href="/" className="block px-3 py-2 rounded-md text-base font-medium text-gray-900 hover:bg-gray-50">
-            Image Creation
-          </Link>
-          <Link href="/how-to-guide" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">
-            How-To-Guide
-          </Link>
-          <Link href="/about" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">
-            About Us
-          </Link>
-          <Link href="/curated-products" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">
-            Curated Products
-          </Link>
-          <Link href="/try-me" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">
-            Try Me
-          </Link>
-          <Link href="/account" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">
-            My Account
-          </Link>
-          <Link href="/cart" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">
-            Cart
-          </Link>
-        </div>
-      </motion.div>
-    )}
-  </AnimatePresence>
+    {/* Mobile Menu */}
+    <AnimatePresence>
+      {isMobileMenuOpen && (
+        <motion.div
+          ref={mobileMenuRef}
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.3 }}
+          className="md:hidden w-full overflow-hidden bg-white border-t border-gray-200 mt-2"
+        >
+          <div className="px-4 py-3 space-y-3">
+            <Link 
+              href="/" 
+              className="block py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Image Creation
+            </Link>
+            <Link 
+              href="/how-to-guide" 
+              className="block py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              How-To-Guide
+            </Link>
+            <Link 
+              href="/about" 
+              className="block py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              About Us
+            </Link>
+            <Link 
+              href="/try-me" 
+              className="block py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Try Me
+            </Link>
+            <Link 
+              href="/curated-products" 
+              className="block py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Curated Products
+            </Link>
+            
+            <div className="pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <Link 
+                  href="/account?tab=account" 
+                  className="flex items-center py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <svg data-bbox="0 0 50 50" data-type="shape" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 50 50" className="mr-2"><g><path d="M25 48.077c-5.924 0-11.31-2.252-15.396-5.921 2.254-5.362 7.492-8.267 15.373-8.267 7.889 0 13.139 3.044 15.408 8.418-4.084 3.659-9.471 5.77-15.385 5.77m.278-35.3c4.927 0 8.611 3.812 8.611 8.878 0 5.21-3.875 9.456-8.611 9.456s-8.611-4.246-8.611-9.456c0-5.066 3.684-8.878 8.611-8.878M25 0C11.193 0 0 11.193 0 25c0 .915.056 1.816.152 2.705.032.295.091.581.133.873.085.589.173 1.176.298 1.751.073.338.169.665.256.997.135.515.273 1.027.439 1.529.114.342.243.675.37 1.01.18.476.369.945.577 1.406.149.331.308.657.472.98.225.446.463.883.714 1.313.182.312.365.619.56.922.272.423.56.832.856 1.237.207.284.41.568.629.841.325.408.671.796 1.02 1.182.22.244.432.494.662.728.405.415.833.801 1.265 1.186.173.154.329.325.507.475l.004-.011A24.886 24.886 0 0 0 25 50a24.881 24.881 0 0 0 16.069-5.861.126.126 0 0 1 .003.01c.172-.144.324-.309.49-.458.442-.392.88-.787 1.293-1.209.228-.232.437-.479.655-.72.352-.389.701-.78 1.028-1.191.218-.272.421-.556.627-.838.297-.405.587-.816.859-1.24a26.104 26.104 0 0 0 1.748-3.216c.208-.461.398-.93.579-1.406.127-.336.256-.669.369-1.012.167-.502.305-1.014.44-1.53.087-.332.183-.659.256-.996.126-.576.214-1.164.299-1.754.042-.292.101-.577.133-.872.095-.89.152-1.791.152-2.707C50 11.193 38.807 0 25 0" fill="currentColor"></path></g></svg>
+                  My Account
+                </Link>
+                <Link 
+                  href="/cart" 
+                  className="flex items-center py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                  </svg>
+                  Cart
+                </Link>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
 </header>
   );
 };
