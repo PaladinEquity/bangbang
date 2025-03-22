@@ -52,8 +52,7 @@ export async function checkImageStatus(requestId: string) {
       throw new Error(errorData.error || 'Failed to check image status');
     }
 
-    const data = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error checking image status:', error);
     throw error;
@@ -75,8 +74,7 @@ export async function getImageResults(requestId: string) {
       throw new Error(errorData.error || 'Failed to get image results');
     }
 
-    const data = await response.json();
-    return data.images;
+    return await response.json();
   } catch (error) {
     console.error('Error getting image results:', error);
     throw error;

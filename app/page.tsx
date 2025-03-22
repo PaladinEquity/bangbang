@@ -402,7 +402,7 @@ export default function Home() {
         {selectedImage && (
           <div className="w-full">
             <div className="border-t border-gray-300 pt-4 mb-4">
-              <h2 className="text-xl font-bold text-center mb-4">CUSTOMIZE</h2>
+              <h2 className="text-xl font-bold text-center mb-4">CREATE</h2>
             </div>
             
             {/* Selected Image Display */}

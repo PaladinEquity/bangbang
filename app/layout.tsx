@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display, Roboto_Mono } from "next/font/google";
 import "./globals.css";
-import "./app.css";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ChatWidget from "../components/ChatWidget";
