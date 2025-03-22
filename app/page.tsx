@@ -11,7 +11,7 @@ import { generateImages, checkImageStatus, getImageResults } from "@/services/im
 import { Amplify } from "aws-amplify";
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "@/amplify/data/resource";
-import "./../app/app.css";
+// import "./../app/app.css";
 import outputs from "@/amplify_outputs.json";
 import "@aws-amplify/ui-react/styles.css";
 
