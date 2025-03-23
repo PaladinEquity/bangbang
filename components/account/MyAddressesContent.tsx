@@ -207,7 +207,7 @@ export default function MyAddressesContent() {
                     value={formData.name}
                     onChange={handleInputChange}
                     placeholder="Home, Work, etc."
-                    className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-0 focus:border-transparent"
                     required
                   />
                 </div>
@@ -219,7 +219,7 @@ export default function MyAddressesContent() {
                     name="recipient"
                     value={formData.recipient}
                     onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-0 focus:border-transparent"
                     required
                   />
                 </div>
@@ -231,7 +231,7 @@ export default function MyAddressesContent() {
                     name="street"
                     value={formData.street}
                     onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-0 focus:border-transparent"
                     required
                   />
                 </div>
@@ -244,7 +244,7 @@ export default function MyAddressesContent() {
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-0 focus:border-transparent"
                       required
                     />
                   </div>
@@ -255,7 +255,7 @@ export default function MyAddressesContent() {
                       name="state"
                       value={formData.state}
                       onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-0 focus:border-transparent"
                       required
                     />
                   </div>
@@ -269,7 +269,7 @@ export default function MyAddressesContent() {
                       name="zipCode"
                       value={formData.zipCode}
                       onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-0 focus:border-transparent"
                       required
                     />
                   </div>
@@ -279,7 +279,7 @@ export default function MyAddressesContent() {
                       name="country"
                       value={formData.country}
                       onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-0 focus:border-transparent"
                       required
                     >
                       <option value="United States">United States</option>
@@ -298,7 +298,7 @@ export default function MyAddressesContent() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+                    className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-0 focus:border-transparent"
                     required
                   />
                 </div>
@@ -310,7 +310,7 @@ export default function MyAddressesContent() {
                       name="isDefault"
                       checked={formData.isDefault}
                       onChange={handleInputChange}
-                      className="h-4 w-4 text-black focus:ring-black border-gray-300 rounded"
+                      className="h-4 w-4 text-black focus:ring-0 border-gray-300 rounded"
                     />
                     <span className="ml-2 text-sm">Set as default address</span>
                   </label>

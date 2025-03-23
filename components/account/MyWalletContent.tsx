@@ -175,7 +175,7 @@ export default function MyWalletContent() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
                     <input 
                       type="text" 
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-0 focus:border-transparent"
                       placeholder="1234 5678 9012 3456"
                     />
                   </div>
@@ -185,7 +185,7 @@ export default function MyWalletContent() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Expiration Date</label>
                       <input 
                         type="text" 
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-0 focus:border-transparent"
                         placeholder="MM/YY"
                       />
                     </div>
@@ -193,7 +193,7 @@ export default function MyWalletContent() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">CVV</label>
                       <input 
                         type="text" 
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-0 focus:border-transparent"
                         placeholder="123"
                       />
                     </div>
@@ -203,7 +203,7 @@ export default function MyWalletContent() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Cardholder Name</label>
                     <input 
                       type="text" 
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-0 focus:border-transparent"
                       placeholder="John Doe"
                     />
                   </div>
@@ -212,7 +212,7 @@ export default function MyWalletContent() {
                     <input 
                       type="checkbox" 
                       id="defaultCard" 
-                      className="h-4 w-4 text-gray-800 focus:ring-gray-400 border-gray-300 rounded"
+                      className="h-4 w-4 text-gray-800 focus:ring-0 border-gray-300 rounded"
                     />
                     <label htmlFor="defaultCard" className="ml-2 block text-sm text-gray-700">
                       Set as default payment method
@@ -223,13 +223,13 @@ export default function MyWalletContent() {
                     <button
                       type="button"
                       onClick={() => setShowPaymentDialog(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-0 focus:border-transparent"
                     >
                       Cancel
                     </button>
                     <button
                       type="button"
-                      className="px-4 py-2 bg-gray-800 text-white rounded-md text-sm font-medium hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                      className="px-4 py-2 bg-gray-800 text-white rounded-md text-sm font-medium hover:bg-gray-700 focus:outline-none focus:ring-0 focus:border-transparent"
                     >
                       Save Payment Method
                     </button>

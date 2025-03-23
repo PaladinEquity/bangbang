@@ -8,6 +8,7 @@ import PageTransition from "../components/PageTransition";
 import { Amplify } from "aws-amplify";
 import outputs from "@/amplify_outputs.json";
 import "@aws-amplify/ui-react/styles.css";
+import { AuthProvider } from "./AuthProvider";
 
 Amplify.configure(outputs);
 
@@ -28,13 +29,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${playfairDisplay.variable} ${robotoMono.variable} font-sans bg-neutral-50`}>
-        <div className="fixed top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-amber-500 z-50"></div>
-        <Header />
-        <main className="min-h-screen pt-24 md:pt-28 pb-24">
-          <PageTransition transitionType="fade" duration={0.4}>{children}</PageTransition>
-        </main>
-        <Footer />
-        <ChatWidget />
+        <AuthProvider>
+          <div className="fixed top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-amber-500 z-50"></div>
+          <Header />
+          <main className="min-h-screen pt-24 md:pt-28 pb-24">
+            <PageTransition transitionType="fade" duration={0.4}>{children}</PageTransition>
+          </main>
+          <Footer />
+          <ChatWidget />
+        </AuthProvider>
       </body>
     </html>
   );

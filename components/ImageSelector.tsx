@@ -118,7 +118,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({ images, onImageSelect, is
             >
               {isGenerating ? (
                 <div className="w-full h-64 flex items-center justify-center bg-gray-100">
-                  <LoadingSpinner size="large" color="#4B5563" />
+                  <img src="/loading.gif" alt="Loading..." className="w-24 h-24" />
                 </div>
               ) : (
                 <>

@@ -178,12 +178,6 @@ button:active, a:active, .interactive:active {
   transform: scale(0.98);
 }
 
-/* Focus styles for accessibility */
-button:focus, a:focus, input:focus, textarea:focus, select:focus {
-  outline: 2px solid #6200ea;
-  outline-offset: 2px;
-}
-
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

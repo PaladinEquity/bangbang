@@ -1,15 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../auth/AuthContext';
 
 export default function MyAccountContent() {
-  // Sample user data
+  const { user, refreshUser } = useAuth();
+  
+  // Initialize with empty data that will be populated from auth context
   const [userData, setUserData] = useState({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'Amvaneke@paladineequitycapital.com',
-    phone: '+1 (555) 123-4567',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
   });
+
+  // Update user data when auth context changes
+  useEffect(() => {
+    if (user) {
+      setUserData({
+        firstName: user.attributes?.given_name || '',
+        lastName: user.attributes?.family_name || '',
+        email: user.email || '',
+        phone: user.attributes?.phone_number || '',
+      });
+    }
+  }, [user]);
 
   // State for form editing
   const [isEditing, setIsEditing] = useState(false);
@@ -67,7 +82,7 @@ export default function MyAccountContent() {
                 name="firstName"
                 value={formData.firstName}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+                className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-0 focus:border-transparent"
                 disabled={!isEditing}
                 required
               />
@@ -79,7 +94,7 @@ export default function MyAccountContent() {
                 name="lastName"
                 value={formData.lastName}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+                className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-0 focus:border-transparent"
                 disabled={!isEditing}
                 required
               />
@@ -104,7 +119,7 @@ export default function MyAccountContent() {
               name="phone"
               value={formData.phone}
               onChange={handleInputChange}
-              className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-transparent"
+              className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:ring-0 focus:border-transparent"
               disabled={!isEditing}
             />
           </div>

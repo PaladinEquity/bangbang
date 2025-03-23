@@ -173,7 +173,7 @@ export default function WallpaperSimulation({ imageUrl, onScaleChange, selectedR
         {/* Pattern overlay */}
         {isImageLoading && (
           <div className="absolute top-0 left-0 w-full h-[79.66%] flex items-center justify-center bg-gray-100 bg-opacity-50 z-10">
-            <LoadingSpinner size="large" color="#6200ea" />
+            <LoadingSpinner />
           </div>
         )}
         <div

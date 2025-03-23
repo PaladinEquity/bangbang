@@ -161,7 +161,7 @@ const ChatWidget = () => {
               value={inputValue}
               onChange={handleInputChange}
               placeholder="Type a message..."
-              className="flex-1 border border-gray-300 rounded-l-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#6200ea] focus:border-transparent"
+              className="flex-1 border border-gray-300 rounded-l-lg px-3 py-2 focus:outline-none focus:ring-0 focus:border-transparent"
             />
             <button 
               type="submit" 
