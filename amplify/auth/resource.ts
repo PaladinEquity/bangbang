@@ -54,7 +54,7 @@ export const auth = defineAuth({
     // Maps to Cognito standard attribute 'given_name'
     givenName: {
       mutable: true,
-      required: false,
+      required: true,
     },
     // Maps to Cognito standard attribute 'phone_number'
     phoneNumber: {

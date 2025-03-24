@@ -23,40 +23,29 @@ function LoginPageContent() {
   }, []);
 
   const checkAuthStatus = async () => {
-    // First check if we have a token in localStorage
-    const token = localStorage.getItem('token');
-    if (token) {
+    try {
+      // Verify the token by trying to get the current user
+      const user = await getCurrentUser();
+      if (user) {
+        setIsAuthenticated(true);
+        router.push('/account');
+        return;
+      }
+    } catch (error) {
+      // If getCurrentUser fails but we have a token, try to validate the token
       try {
-        // Verify the token by trying to get the current user
-        const user = await getCurrentUser();
-        if (user) {
+        const { accessToken } = (await fetchAuthSession()).tokens ?? {};
+        if (accessToken) {
+          // Token is valid
           setIsAuthenticated(true);
           router.push('/account');
           return;
         }
-      } catch (error) {
-        // If getCurrentUser fails but we have a token, try to validate the token
-        try {
-          const { accessToken } = (await fetchAuthSession()).tokens ?? {};
-          if (accessToken) {
-            // Token is valid
-            setIsAuthenticated(true);
-            router.push('/account');
-            return;
-          } else {
-            // Token is invalid, remove it
-            localStorage.removeItem('token');
-          }
-        } catch (tokenError) {
-          // Token validation failed, remove it
-          localStorage.removeItem('token');
-          console.log('Token validation failed:', tokenError);
-        }
+      } catch (tokenError) {
+        // Token validation failed, remove it
+        console.log('Token validation failed:', tokenError);
       }
     }
-    
-    // User is not authenticated, continue showing login page
-    console.log('User not authenticated');
   };
 
   // Get redirect URL from query parameters
@@ -75,7 +64,7 @@ function LoginPageContent() {
 
   // Check for redirect after authentication
   useEffect(() => {
-    if(isAuthenticated && redirectUrl) {
+    if (isAuthenticated && redirectUrl) {
       console.log('Redirecting to:', redirectUrl);
       // Use router.push instead of replace and add a small delay to ensure the redirect happens
       setTimeout(() => {
@@ -98,14 +87,7 @@ function LoginPageContent() {
       if (isSignedIn) {
         setIsAuthenticated(true);
         // Get session tokens and set auth cookie
-        const { accessToken } = (await fetchAuthSession()).tokens ?? {};
-        
-        if (accessToken) {
-          localStorage.setItem('token', accessToken.toString());
-          router.push(redirectUrl);
-        } else {
-          throw new Error('No access token found after authentication');
-        }
+        router.push(redirectUrl);
       } else if (nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
         // Handle new password required flow
         router.push('/auth/reset-password');
@@ -124,10 +106,10 @@ function LoginPageContent() {
 
     try {
       // Configure the redirect URI for social sign-in
-      const redirectSignIn = typeof window !== 'undefined' ? 
-        `${window.location.origin}/account` : 
+      const redirectSignIn = typeof window !== 'undefined' ?
+        `${window.location.origin}/account` :
         'http://localhost:3000/account';
-      
+
       await signInWithRedirect({
         provider: provider as 'Google' | 'Facebook',
         // options: {
@@ -147,7 +129,7 @@ function LoginPageContent() {
   }
 
   return (
-      <div className="max-w-md mx-auto p-6 pt-10">
+    <div className="max-w-md mx-auto p-6 pt-10">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

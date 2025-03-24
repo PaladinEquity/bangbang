@@ -29,40 +29,29 @@ export default function RegisterPage() {
 
 
   const checkAuthStatus = async () => {
-    // First check if we have a token in localStorage
-    const token = localStorage.getItem('token');
-    if (token) {
+    try {
+      // Verify the token by trying to get the current user
+      const user = await getCurrentUser();
+      if (user) {
+        setIsAuthenticated(true);
+        router.push('/account');
+        return;
+      }
+    } catch (error) {
+      // If getCurrentUser fails but we have a token, try to validate the token
       try {
-        // Verify the token by trying to get the current user
-        const user = await getCurrentUser();
-        if (user) {
+        const { accessToken } = (await fetchAuthSession()).tokens ?? {};
+        if (accessToken) {
+          // Token is valid
           setIsAuthenticated(true);
           router.push('/account');
           return;
         }
-      } catch (error) {
-        // If getCurrentUser fails but we have a token, try to validate the token
-        try {
-          const { accessToken } = (await fetchAuthSession()).tokens ?? {};
-          if (accessToken) {
-            // Token is valid
-            setIsAuthenticated(true);
-            router.push('/account');
-            return;
-          } else {
-            // Token is invalid, remove it
-            localStorage.removeItem('token');
-          }
-        } catch (tokenError) {
-          // Token validation failed, remove it
-          localStorage.removeItem('token');
-          console.log('Token validation failed:', tokenError);
-        }
+      } catch (tokenError) {
+        console.log('Token validation failed:', tokenError);
       }
     }
-    
-    // User is not authenticated, continue showing register page
-    console.log('User not authenticated');
+
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,33 +67,33 @@ export default function RegisterPage() {
       setError('All fields are required');
       return false;
     }
-    
+
     if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
       setError('Please enter a valid email address');
       return false;
     }
-    
+
     if (formData.password.length < 8) {
       setError('Password must be at least 8 characters long');
       return false;
     }
-    
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return false;
     }
-    
+
     return true;
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setLoading(true);
     setError('');
-
+    console.log('Form data:', formData);
     try {
       const { isSignUpComplete, userId, nextStep } = await signUp({
         username: formData.email,
@@ -113,12 +102,17 @@ export default function RegisterPage() {
           userAttributes: {
             email: formData.email,
             given_name: formData.firstName,
-            family_name: formData.lastName || ''
+            family_name: formData.lastName || '',
+            address: '',
+            phone_number: '',
+            picture: '',
+            zoneinfo: '',
+            updated_at: new Date().toISOString() // Example for lastUpdateTime
           },
           autoSignIn: true
         }
       });
-
+      console.log("isSignUpComplete-------", isSignUpComplete);
       if (isSignUpComplete) {
         // If sign-up is complete without confirmation
         try {
@@ -142,29 +136,25 @@ export default function RegisterPage() {
 
   const handleConfirmSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!confirmationCode) {
       setError('Please enter the confirmation code');
       return;
     }
-    
+
     setLoading(true);
     setError('');
 
     try {
-      const { isSignUpComplete } = await confirmSignUp({
+      const { isSignUpComplete, nextStep } = await confirmSignUp({
         username: formData.email,
         confirmationCode
       });
-
+      console.log("isSignUpComplete---------------", isSignUpComplete, nextStep);
       if (isSignUpComplete) {
         // Try auto sign-in after confirmation
         try {
-          const { accessToken } = (await fetchAuthSession()).tokens ?? {};
-          if (accessToken) {
-            localStorage.setItem('token', accessToken.toString());
-            router.push('/account');
-          }
+          router.push('/account');
         } catch (error) {
           console.log('Error during auto sign-in:', error);
           router.push('/auth/login?verified=true');
@@ -184,10 +174,10 @@ export default function RegisterPage() {
 
     try {
       // Configure the redirect URI for social sign-up
-      const redirectSignIn = typeof window !== 'undefined' ? 
-        `${window.location.origin}/account` : 
+      const redirectSignIn = typeof window !== 'undefined' ?
+        `${window.location.origin}/account` :
         'http://localhost:3000/account';
-      
+
       await signInWithRedirect({
         provider: provider as 'Google' | 'Facebook',
         // options: {
@@ -218,13 +208,13 @@ export default function RegisterPage() {
           // Registration Form
           <>
             <h1 className="text-2xl font-bold mb-6 text-center">Create Account</h1>
-            
+
             {error && (
               <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-md text-sm">
                 {error}
               </div>
             )}
-            
+
             <form onSubmit={handleSignUp}>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
@@ -255,7 +245,7 @@ export default function RegisterPage() {
                   />
                 </div>
               </div>
-              
+
               <div className="mb-4">
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                   Email Address *
@@ -270,7 +260,7 @@ export default function RegisterPage() {
                   required
                 />
               </div>
-              
+
               <div className="mb-4">
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                   Password *
@@ -286,7 +276,7 @@ export default function RegisterPage() {
                 />
                 <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters long</p>
               </div>
-              
+
               <div className="mb-6">
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                   Confirm Password *
@@ -301,7 +291,7 @@ export default function RegisterPage() {
                   required
                 />
               </div>
-              
+
               <button
                 type="submit"
                 disabled={loading}
@@ -317,7 +307,7 @@ export default function RegisterPage() {
                   </>
                 ) : 'Create Account'}
               </button>
-              
+
               <div className="mt-4 text-center text-sm">
                 <p>
                   Already have an account?{' '}
@@ -372,18 +362,18 @@ export default function RegisterPage() {
           // Confirmation Code Form
           <>
             <h1 className="text-2xl font-bold mb-6 text-center">Verify Your Email</h1>
-            
+
             {error && (
               <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-md text-sm">
                 {error}
               </div>
             )}
-            
+
             <p className="mb-4 text-gray-600 text-sm">
-              We've sent a verification code to <span className="font-medium">{formData.email}</span>. 
+              We've sent a verification code to <span className="font-medium">{formData.email}</span>.
               Please enter the code below to verify your account.
             </p>
-            
+
             <form onSubmit={handleConfirmSignUp}>
               <div className="mb-6">
                 <label htmlFor="confirmationCode" className="block text-sm font-medium text-gray-700 mb-1">
@@ -398,7 +388,7 @@ export default function RegisterPage() {
                   required
                 />
               </div>
-              
+
               <button
                 type="submit"
                 disabled={loading}
@@ -414,13 +404,13 @@ export default function RegisterPage() {
                   </>
                 ) : 'Verify Account'}
               </button>
-              
+
               <div className="mt-4 text-center text-sm">
                 <p>
                   Didn't receive a code?{' '}
-                  <button 
-                    type="button" 
-                    onClick={handleSignUp} 
+                  <button
+                    type="button"
+                    onClick={handleSignUp}
                     className="text-gray-700 hover:text-gray-900 transition-colors duration-200"
                   >
                     Resend Code
