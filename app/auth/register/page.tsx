@@ -106,8 +106,7 @@ export default function RegisterPage() {
             address: '',
             phone_number: '',
             picture: '',
-            zoneinfo: '',
-            updated_at: new Date().toISOString() // Example for lastUpdateTime
+            zoneinfo: ''
           },
           autoSignIn: true
         }
