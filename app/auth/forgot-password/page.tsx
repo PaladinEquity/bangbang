@@ -30,7 +30,7 @@ function ForgotPasswordPageContent() {
   
   useEffect(() => {
     const redirect = searchParams.get('redirect');
-    if (redirect && redirect !== '/account/login' && redirect !== '/account/register' && redirect !== '/account/forgot-password') {
+    if (redirect && redirect !== '/auth/login' && redirect !== '/auth/register' && redirect !== '/auth/forgot-password') {
       // Clean up the redirect URL if it contains the current URL
       const cleanRedirect = redirect.includes('?redirect=') 
         ? redirect.split('?redirect=')[0] 
@@ -120,7 +120,7 @@ function ForgotPasswordPageContent() {
       
       // Redirect to login page after a short delay
       setTimeout(() => {
-        router.push('/account/login?redirect=' + encodeURIComponent(redirectUrl));
+        router.push('/auth/login?redirect=' + encodeURIComponent(redirectUrl));
       }, 2000);
     } catch (error: any) {
       console.error('Error confirming password reset:', error);
@@ -184,7 +184,7 @@ function ForgotPasswordPageContent() {
             </button>
 
             <div className="mt-4 text-center text-sm">
-              <Link href="/account/login" className="text-gray-700 hover:text-gray-900 font-medium">
+              <Link href="/auth/login" className="text-gray-700 hover:text-gray-900 font-medium">
                 Back to Login
               </Link>
             </div>

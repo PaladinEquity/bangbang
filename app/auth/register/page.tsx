@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { signUp, confirmSignUp, autoSignIn, getCurrentUser, signInWithRedirect } from 'aws-amplify/auth';
+import { signUp, confirmSignUp, autoSignIn, getCurrentUser, signInWithRedirect, fetchAuthSession } from 'aws-amplify/auth';
 import '@aws-amplify/ui-react/styles.css';
 
 export default function RegisterPage() {
@@ -27,17 +27,42 @@ export default function RegisterPage() {
     checkAuthStatus();
   }, []);
 
+
   const checkAuthStatus = async () => {
-    try {
-      const user = await getCurrentUser();
-      if (user) {
-        setIsAuthenticated(true);
-        router.push('/account');
+    // First check if we have a token in localStorage
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        // Verify the token by trying to get the current user
+        const user = await getCurrentUser();
+        if (user) {
+          setIsAuthenticated(true);
+          router.push('/account');
+          return;
+        }
+      } catch (error) {
+        // If getCurrentUser fails but we have a token, try to validate the token
+        try {
+          const { accessToken } = (await fetchAuthSession()).tokens ?? {};
+          if (accessToken) {
+            // Token is valid
+            setIsAuthenticated(true);
+            router.push('/account');
+            return;
+          } else {
+            // Token is invalid, remove it
+            localStorage.removeItem('token');
+          }
+        } catch (tokenError) {
+          // Token validation failed, remove it
+          localStorage.removeItem('token');
+          console.log('Token validation failed:', tokenError);
+        }
       }
-    } catch (error) {
-      // User is not authenticated, continue showing register page
-      console.log('User not authenticated');
     }
+    
+    // User is not authenticated, continue showing register page
+    console.log('User not authenticated');
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,10 +123,10 @@ export default function RegisterPage() {
         // If sign-up is complete without confirmation
         try {
           await autoSignIn();
-          router.push('/account');
+          router.push('/');
         } catch (error) {
           console.log('Error during auto sign-in:', error);
-          router.push('/account/login');
+          router.push('/auth/login');
         }
       } else if (nextStep.signUpStep === 'CONFIRM_SIGN_UP') {
         // User needs to confirm sign-up with a code
@@ -135,11 +160,14 @@ export default function RegisterPage() {
       if (isSignUpComplete) {
         // Try auto sign-in after confirmation
         try {
-          await autoSignIn();
-          router.push('/account');
+          const { accessToken } = (await fetchAuthSession()).tokens ?? {};
+          if (accessToken) {
+            localStorage.setItem('token', accessToken.toString());
+            router.push('/account');
+          }
         } catch (error) {
           console.log('Error during auto sign-in:', error);
-          router.push('/account/login?verified=true');
+          router.push('/auth/login?verified=true');
         }
       }
     } catch (error: any) {
@@ -293,7 +321,7 @@ export default function RegisterPage() {
               <div className="mt-4 text-center text-sm">
                 <p>
                   Already have an account?{' '}
-                  <Link href="/account/login" className="text-gray-700 hover:text-gray-900 transition-colors duration-200">
+                  <Link href="/auth/login" className="text-gray-700 hover:text-gray-900 transition-colors duration-200">
                     Sign In
                   </Link>
                 </p>

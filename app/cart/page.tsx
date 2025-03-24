@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import RouteProtection from '../../components/auth/RouteProtection';
 import Link from 'next/link';
 
 type CartItem = {
@@ -16,7 +17,7 @@ type CartItem = {
   };
 };
 
-export default function Cart() {
+function CartContent() {
   // In a real implementation, this would come from a state management solution or API
   const [cartItems, setCartItems] = useState<CartItem[]>([
     {
@@ -67,7 +68,7 @@ export default function Cart() {
   const total = subtotal + shipping + tax;
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Your Cart</h1>
       
       {cartItems.length === 0 ? (
@@ -188,5 +189,13 @@ export default function Cart() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Cart() {
+  return (
+    <RouteProtection requireAuth={true}>
+      <CartContent />
+    </RouteProtection>
   );
 }

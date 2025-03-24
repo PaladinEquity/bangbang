@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { signIn, getCurrentUser, signInWithRedirect  } from 'aws-amplify/auth';
+import { signIn, getCurrentUser, signInWithRedirect, fetchAuthSession } from 'aws-amplify/auth';
 // import { Amplify } from 'aws-amplify';
 // import { CognitoIdentityProvider } from '@aws-sdk/client-cognito-identity-provider';
 import '@aws-amplify/ui-react/styles.css';
@@ -23,16 +23,40 @@ function LoginPageContent() {
   }, []);
 
   const checkAuthStatus = async () => {
-    try {
-      const user = await getCurrentUser();
-      if (user) {
-        setIsAuthenticated(true);
-        router.push('/account');
+    // First check if we have a token in localStorage
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        // Verify the token by trying to get the current user
+        const user = await getCurrentUser();
+        if (user) {
+          setIsAuthenticated(true);
+          router.push('/account');
+          return;
+        }
+      } catch (error) {
+        // If getCurrentUser fails but we have a token, try to validate the token
+        try {
+          const { accessToken } = (await fetchAuthSession()).tokens ?? {};
+          if (accessToken) {
+            // Token is valid
+            setIsAuthenticated(true);
+            router.push('/account');
+            return;
+          } else {
+            // Token is invalid, remove it
+            localStorage.removeItem('token');
+          }
+        } catch (tokenError) {
+          // Token validation failed, remove it
+          localStorage.removeItem('token');
+          console.log('Token validation failed:', tokenError);
+        }
       }
-    } catch (error) {
-      // User is not authenticated, continue showing login page
-      console.log('User not authenticated');
     }
+    
+    // User is not authenticated, continue showing login page
+    console.log('User not authenticated');
   };
 
   // Get redirect URL from query parameters
@@ -42,7 +66,7 @@ function LoginPageContent() {
   useEffect(() => {
     // Check for redirect parameter in URL using Next.js useSearchParams
     const redirect = searchParams.get('redirect');
-    if (redirect && redirect !== '/account/login' && redirect !== '/account/register') {
+    if (redirect && redirect !== '/auth/login' && redirect !== '/auth/register') {
       // Decode the URL if it's URL encoded
       // const decodedRedirect = decodeURIComponent(cleanRedirect);
       setRedirectUrl(redirect);
@@ -73,12 +97,18 @@ function LoginPageContent() {
       console.log('Sign in result:', { isSignedIn, nextStep });
       if (isSignedIn) {
         setIsAuthenticated(true);
-        console.log('Successfully authenticated, redirecting to:', redirectUrl);
-        // Force a direct navigation instead of relying on the useEffect
-        window.location.href = redirectUrl;
+        // Get session tokens and set auth cookie
+        const { accessToken } = (await fetchAuthSession()).tokens ?? {};
+        
+        if (accessToken) {
+          localStorage.setItem('token', accessToken.toString());
+          router.push(redirectUrl);
+        } else {
+          throw new Error('No access token found after authentication');
+        }
       } else if (nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
         // Handle new password required flow
-        router.push('/account/reset-password');
+        router.push('/auth/reset-password');
       }
     } catch (error: any) {
       console.error('Error signing in:', error);
@@ -160,9 +190,9 @@ function LoginPageContent() {
               required
             />
             <div className="mt-1 text-right">
-              <Link href="/account/forgot-password" className="text-sm text-gray-700 hover:text-gray-900" onClick={(e) => {
+              <Link href="/auth/forgot-password" className="text-sm text-gray-700 hover:text-gray-900" onClick={(e) => {
                 e.preventDefault();
-                router.push('/account/forgot-password');
+                router.push('/auth/forgot-password');
               }}>
                 Forgot password?
               </Link>
@@ -221,7 +251,7 @@ function LoginPageContent() {
         <div className="mt-6 text-center text-sm">
           <p>
             Don't have an account?{' '}
-            <Link href="/account/register" className="text-gray-700 hover:text-gray-900 font-medium">
+            <Link href="/auth/register" className="text-gray-700 hover:text-gray-900 font-medium">
               Sign up
             </Link>
           </p>

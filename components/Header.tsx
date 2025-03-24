@@ -49,9 +49,6 @@ const Header = () => {
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
-  useEffect(() => {
-    console.log("=============",isMobileMenuOpen);
-  },[isMobileMenuOpen])
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm transition-all duration-300">
@@ -75,7 +72,7 @@ const Header = () => {
               )}
             </button>
           </div>
-          
+
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
@@ -215,21 +212,18 @@ const Header = () => {
                 <div className="mb-4">
                   <AuthButtons isMobile={true} closeMobileMenu={() => setIsMobileMenuOpen(false)} />
                 </div>
-
-                <div className="flex items-center justify-between">
-                  <Link
-                    href="/cart"
-                    className="flex items-center py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-                      <circle cx="9" cy="21" r="1"></circle>
-                      <circle cx="20" cy="21" r="1"></circle>
-                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                    </svg>
-                    Cart
-                  </Link>
-                </div>
+                <Link
+                  href="/cart"
+                  className="flex py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                  </svg>
+                  Cart
+                </Link>
               </div>
             </div>
           </motion.div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getCurrentUser, signOut } from 'aws-amplify/auth';
+import { getCurrentUser, signOut, fetchAuthSession } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
 
 type AuthUser = {
@@ -37,30 +37,54 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchUserData = async () => {
     try {
       setIsLoading(true);
-      const currentUser = await getCurrentUser();
       
-      // Format user data
-      const userData: AuthUser = {
-        username: currentUser.username,
-        userId: currentUser.userId,
-      };
-
-      // Try to get additional user attributes if available
       try {
-        const attributes = currentUser.signInDetails?.loginId ? {
-          email: currentUser.signInDetails.loginId,
-        } : {};
+        // Try to get the current user from Amplify
+        const currentUser = await getCurrentUser();
+        // Format user data
+        const userData: AuthUser = {
+          username: currentUser.username,
+          userId: currentUser.userId,
+        };
 
-        userData.attributes = attributes;
-        userData.email = attributes.email;
+        // Try to get additional user attributes if available
+        try {
+          const attributes = currentUser.signInDetails?.loginId ? {
+            email: currentUser.signInDetails.loginId,
+          } : {};
+
+          userData.attributes = attributes;
+          userData.email = attributes.email;
+        } catch (error) {
+          console.log('Could not get user attributes', error);
+        }
+
+        setUser(userData);
       } catch (error) {
-        console.log('Could not get user attributes', error);
+        // If getCurrentUser fails but we have a token, try to validate the token
+        try {
+          const { accessToken } = (await fetchAuthSession()).tokens ?? {};
+          console.log('Token validation result:', accessToken);
+          if (accessToken) {
+            // Token is valid, create a minimal user object
+            setUser({
+              username: 'user', // Placeholder
+              userId: 'user-id', // Placeholder
+            });
+          } else {
+            // Token is invalid
+            localStorage.removeItem('token');
+            setUser(null);
+          }
+        } catch (tokenError) {
+          // Token validation failed
+          localStorage.removeItem('token');
+          setUser(null);
+        }
       }
-
-      setUser(userData);
-      // return userData;
     } catch (error) {
       console.log('No authenticated user', error);
+      localStorage.removeItem('token');
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -70,9 +94,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     try {
       await signOut();
+      // Clear the token from localStorage
+      localStorage.removeItem('token');
       setUser(null);
     } catch (error) {
       console.error('Error signing out:', error);
+      // Still clear the token and user state even if Amplify signOut fails
+      localStorage.removeItem('token');
+      setUser(null);
     }
   };
 
@@ -89,6 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           break;
         case 'signedOut':
           console.log('User signed out');
+          localStorage.removeItem('token');
           setUser(null);
           break;
         case 'tokenRefresh':
@@ -98,9 +128,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         case 'tokenRefresh_failure':
           console.log('Token refresh failed');
           // Handle token refresh failure
+          localStorage.removeItem('token');
+          setUser(null);
           break;
       }
     });
+    
+    // Add a storage event listener to sync auth state across tabs
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'token') {
+        if (!event.newValue) {
+          // Token was removed in another tab
+          setUser(null);
+        } else if (!user) {
+          // Token was added in another tab
+          fetchUserData();
+        }
+      }
+    };
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorageChange);
+    }
 
     return () => {
       unsubscribe();

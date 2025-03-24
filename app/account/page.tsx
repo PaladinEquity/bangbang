@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import RouteProtection from '../../components/auth/RouteProtection';
 import { useSearchParams } from 'next/navigation';
 import AccountTabs from '../../components/AccountTabs';
 
@@ -63,8 +64,10 @@ function AccountPageContent() {
 
 export default function AccountPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <AccountPageContent />
-    </Suspense>
+    <RouteProtection requireAuth={true}>
+      <Suspense fallback={<div>Loading...</div>}>
+        <AccountPageContent />
+      </Suspense>
+    </RouteProtection>
   );
 }
