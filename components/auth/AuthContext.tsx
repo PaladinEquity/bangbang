@@ -46,6 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Try to get the current user from Amplify
         const currentUser = await getCurrentUser();
         const attributes = await fetchUserAttributes();
+        console.log("attributes-----------", attributes);
         // Format user data
         const userData: AuthUser = {
           username: currentUser.username,

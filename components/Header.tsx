@@ -46,8 +46,10 @@ const Header = () => {
     if (!showUserDropdown) setShowMoreDropdown(false);
   };
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
+  const toggleMobileMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // if(!isMobileMenuOpen)
+    e.preventDefault();
+      setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
   return (
@@ -169,40 +171,36 @@ const Header = () => {
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
             className="md:hidden w-full overflow-hidden bg-white border-t border-gray-200 mt-2 focus:outline-none"
+            onClick={() => setIsMobileMenuOpen(false)}
           >
             <div className="px-4 py-3 space-y-3">
               <Link
                 href="/"
                 className="block py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
-                onClick={() => setIsMobileMenuOpen(false)}
               >
                 Image Creation
               </Link>
               <Link
                 href="/how-to-guide"
                 className="block py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
-                onClick={() => setIsMobileMenuOpen(false)}
               >
                 How-To-Guide
               </Link>
               <Link
                 href="/about"
                 className="block py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
-                onClick={() => setIsMobileMenuOpen(false)}
               >
                 About Us
               </Link>
               <Link
                 href="/try-me"
                 className="block py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
-                onClick={() => setIsMobileMenuOpen(false)}
               >
                 Try Me
               </Link>
               <Link
                 href="/curated-products"
                 className="block py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
-                onClick={() => setIsMobileMenuOpen(false)}
               >
                 Curated Products
               </Link>
@@ -215,7 +213,6 @@ const Header = () => {
                 <Link
                   href="/cart"
                   className="flex py-2 px-3 text-base font-medium hover:bg-gray-100 rounded-md transition-colors duration-200"
-                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
                     <circle cx="9" cy="21" r="1"></circle>
