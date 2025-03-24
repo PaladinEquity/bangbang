@@ -2,9 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { getUserData, updateUserData, UserData } from '../../services/userService';
+import StatusMessage from './StatusMessage';
+import ChangePasswordForm from './ChangePasswordForm';
 
 export default function MyAccountContent() {
-  const { user, refreshUser, updateUserProfile } = useAuth();
+  const { user, refreshUser } = useAuth();
   
   // Initialize with empty data that will be populated from auth context
   const [userData, setUserData] = useState({
@@ -14,23 +17,37 @@ export default function MyAccountContent() {
     phone: '',
   });
 
-  // Update user data when auth context changes
+  // Fetch user data from Cognito when component mounts
   useEffect(() => {
-    if (user) {
-      setUserData({
-        firstName: user.attributes?.given_name || '',
-        lastName: user.attributes?.family_name || '',
-        email: user.email || '',
-        phone: user.attributes?.phone_number || '',
-      });
-    }
+    const fetchData = async () => {
+      if (user) {
+        try {
+          // Get user data from the userService
+          const data = await getUserData();
+          setUserData({
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            email: data.email || '',
+            phone: data.phone || '',
+          });
+        } catch (err) {
+          console.error('Error fetching user data:', err);
+          // Fallback to auth context data if API fails
+          setUserData({
+            firstName: user.attributes?.given_name || '',
+            lastName: user.attributes?.family_name || '',
+            email: user.email || '',
+            phone: user.attributes?.phone_number || '',
+          });
+        }
+      }
+    };
+    
+    fetchData();
   }, [user]);
 
   // State for form editing
   const [isEditing, setIsEditing] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [updateError, setUpdateError] = useState<string | null>(null);
-  const [updateSuccess, setUpdateSuccess] = useState(false);
   const [formData, setFormData] = useState({
     firstName: userData.firstName,
     lastName: userData.lastName,
@@ -45,34 +62,39 @@ export default function MyAccountContent() {
     });
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setUpdateError(null);
-    setUpdateSuccess(false);
+    setError('');
+    setSuccessMessage('');
     
     try {
-      // Format the data for Cognito
-      const attributesToUpdate = {
-        given_name: formData.firstName,
-        family_name: formData.lastName,
-        phone_number: formData.phone,
-      };
+      // Update user data using the userService
+      const updatedData = await updateUserData({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+      });
       
-      // Update user profile using AuthContext
-      const success = await updateUserProfile(attributesToUpdate);
+      // Update local state with the response
+      setUserData({
+        firstName: updatedData.firstName || '',
+        lastName: updatedData.lastName || '',
+        email: updatedData.email || '',
+        phone: updatedData.phone || '',
+      });
       
-      if (success) {
-        setUpdateSuccess(true);
-        setIsEditing(false);
-        // Refresh user data to get updated attributes
-        await refreshUser();
-      } else {
-        setUpdateError('Failed to update profile. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      setUpdateError('An unexpected error occurred. Please try again.');
+      setSuccessMessage('Profile updated successfully');
+      setIsEditing(false);
+      
+      // Refresh the user data in the auth context
+      refreshUser();
+    } catch (err) {
+      setError(`Failed to update profile: ${(err as Error).message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -87,10 +109,21 @@ export default function MyAccountContent() {
     setIsEditing(false);
   };
 
+  const clearMessages = () => {
+    setError('');
+    setSuccessMessage('');
+  };
+
   return (
     <>
       <h1 className="text-2xl font-bold mb-6">Account</h1>
       <p className="text-sm text-gray-600 mb-8">View and edit your personal info below.</p>
+      
+      <StatusMessage 
+        success={successMessage} 
+        error={error} 
+        onDismiss={clearMessages} 
+      />
       
       {/* Personal Info */}
       <div className="mb-8">
@@ -148,32 +181,18 @@ export default function MyAccountContent() {
             />
           </div>
           
-          {updateError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">
-              {updateError}
-            </div>
-          )}
-          
-          {updateSuccess && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded">
-              Profile updated successfully!
-            </div>
-          )}
-          
           {isEditing ? (
             <div className="flex space-x-3">
               <button
                 type="submit"
-                className="bg-black text-white px-4 py-2 rounded text-sm hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                disabled={isSubmitting}
+                className="bg-black text-white px-4 py-2 rounded text-sm hover:bg-gray-800 transition-colors"
               >
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
+                Save Changes
               </button>
               <button
                 type="button"
                 onClick={handleDiscard}
-                className="border border-gray-300 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-                disabled={isSubmitting}
+                className="border border-gray-300 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors"
               >
                 Discard
               </button>
@@ -181,11 +200,7 @@ export default function MyAccountContent() {
           ) : (
             <button
               type="button"
-              onClick={() => {
-                setIsEditing(true);
-                setUpdateSuccess(false);
-                setUpdateError(null);
-              }}
+              onClick={() => setIsEditing(true)}
               className="border border-gray-300 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors"
             >
               Edit
@@ -199,15 +214,8 @@ export default function MyAccountContent() {
         <h2 className="text-lg font-medium mb-4">Account Security</h2>
         <p className="text-sm text-gray-600 mb-4">Manage your password and account security.</p>
         
-        <div className="border-t border-gray-200 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="font-medium">Password</h3>
-              <p className="text-sm text-gray-600">Last updated 3 months ago</p>
-            </div>
-            <button className="text-sm text-gray-600 hover:text-gray-900">Change</button>
-          </div>
-        </div>
+        {/* Password Change Form */}
+        <ChangePasswordForm />
         
         <div className="border-t border-gray-200 py-4">
           <div className="flex justify-between items-center">
