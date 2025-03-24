@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getCurrentUser, signOut, fetchAuthSession,fetchUserAttributes } from 'aws-amplify/auth';
+import { getCurrentUser, signOut, fetchAuthSession, fetchUserAttributes, updateUserAttributes } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
 
 type AuthUser = {
@@ -18,6 +18,7 @@ type AuthContextType = {
   isLoading: boolean;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  updateUserProfile: (attributes: Record<string, string>) => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   logout: async () => {},
   refreshUser: async () => {},
+  updateUserProfile: async () => false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -91,6 +93,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateUserProfile = async (attributes: Record<string, string>): Promise<boolean> => {
+    try {
+      setUpdateError(null);
+      
+      // Format attributes for Cognito (convert camelCase to snake_case if needed)
+      const formattedAttributes: Record<string, string> = {};
+      
+      // Map firstName to given_name and lastName to family_name if they exist
+      if (attributes.firstName) {
+        formattedAttributes.given_name = attributes.firstName;
+      }
+      
+      if (attributes.lastName) {
+        formattedAttributes.family_name = attributes.lastName;
+      }
+      
+      // Add any other attributes directly
+      Object.keys(attributes).forEach(key => {
+        if (key !== 'firstName' && key !== 'lastName') {
+          formattedAttributes[key] = attributes[key];
+        }
+      });
+      
+      // Update user attributes in Cognito
+      await updateUserAttributes({
+        userAttributes: formattedAttributes
+      });
+      
+      // Refresh user data to get updated attributes
+      await fetchUserData();
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      setUpdateError(error instanceof Error ? error.message : 'Failed to update profile');
+      return false;
+    }
+  };
+
   useEffect(() => {
     // Initial check for authenticated user
     fetchUserData();
@@ -148,6 +189,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         logout,
         refreshUser: fetchUserData,
+        updateUserProfile,
       }}
     >
       {children}

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
 
 export default function MyAccountContent() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, updateUserProfile } = useAuth();
   
   // Initialize with empty data that will be populated from auth context
   const [userData, setUserData] = useState({
@@ -28,6 +28,9 @@ export default function MyAccountContent() {
 
   // State for form editing
   const [isEditing, setIsEditing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
   const [formData, setFormData] = useState({
     firstName: userData.firstName,
     lastName: userData.lastName,
@@ -42,16 +45,37 @@ export default function MyAccountContent() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, you would validate and submit to an API
-    setUserData({
-      ...userData,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      phone: formData.phone,
-    });
-    setIsEditing(false);
+    setIsSubmitting(true);
+    setUpdateError(null);
+    setUpdateSuccess(false);
+    
+    try {
+      // Format the data for Cognito
+      const attributesToUpdate = {
+        given_name: formData.firstName,
+        family_name: formData.lastName,
+        phone_number: formData.phone,
+      };
+      
+      // Update user profile using AuthContext
+      const success = await updateUserProfile(attributesToUpdate);
+      
+      if (success) {
+        setUpdateSuccess(true);
+        setIsEditing(false);
+        // Refresh user data to get updated attributes
+        await refreshUser();
+      } else {
+        setUpdateError('Failed to update profile. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setUpdateError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDiscard = () => {
@@ -124,18 +148,32 @@ export default function MyAccountContent() {
             />
           </div>
           
+          {updateError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">
+              {updateError}
+            </div>
+          )}
+          
+          {updateSuccess && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded">
+              Profile updated successfully!
+            </div>
+          )}
+          
           {isEditing ? (
             <div className="flex space-x-3">
               <button
                 type="submit"
-                className="bg-black text-white px-4 py-2 rounded text-sm hover:bg-gray-800 transition-colors"
+                className="bg-black text-white px-4 py-2 rounded text-sm hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                disabled={isSubmitting}
               >
-                Save Changes
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
               </button>
               <button
                 type="button"
                 onClick={handleDiscard}
-                className="border border-gray-300 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors"
+                className="border border-gray-300 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                disabled={isSubmitting}
               >
                 Discard
               </button>
@@ -143,7 +181,11 @@ export default function MyAccountContent() {
           ) : (
             <button
               type="button"
-              onClick={() => setIsEditing(true)}
+              onClick={() => {
+                setIsEditing(true);
+                setUpdateSuccess(false);
+                setUpdateError(null);
+              }}
               className="border border-gray-300 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors"
             >
               Edit
