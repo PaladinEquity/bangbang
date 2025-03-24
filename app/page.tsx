@@ -8,14 +8,14 @@ import ColorPicker from "@/components/ColorPicker";
 import ImageSelector from "@/components/ImageSelector";
 import WallpaperSimulation from "@/components/WallpaperSimulation";
 import { generateImages, checkImageStatus, getImageResults } from "@/services/imageService";
-import { Amplify } from "aws-amplify";
+// import { Amplify } from "aws-amplify";
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "@/amplify/data/resource";
 // import "./../app/app.css";
-import outputs from "@/amplify_outputs.json";
+// import outputs from "@/amplify_outputs.json";
 import "@aws-amplify/ui-react/styles.css";
 
-Amplify.configure(outputs);
+// Amplify.configure(outputs);
 
 const client = generateClient<Schema>();
 

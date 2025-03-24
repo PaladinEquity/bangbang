@@ -3,7 +3,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getCurrentUser, signOut, fetchAuthSession,fetchUserAttributes } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
+import { Amplify } from "aws-amplify";
 
+import outputs from "@/amplify_outputs.json";
+
+Amplify.configure(outputs);
 type AuthUser = {
   username: string;
   userId: string;
@@ -42,7 +46,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Try to get the current user from Amplify
         const currentUser = await getCurrentUser();
         const attributes = await fetchUserAttributes();
-        console.log('Authenticated user', attributes);
         // Format user data
         const userData: AuthUser = {
           username: currentUser.username,
@@ -51,22 +54,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           name: attributes.given_name,
           attributes: {
             ...attributes,
-            givenName: attributes.given_name,
-            familyName: attributes.family_name
           }
         };
-
         // Try to get additional user attributes if available
-        try {
-          const attributes = currentUser.signInDetails?.loginId ? {
-            email: currentUser.signInDetails.loginId,
-          } : {};
+        // try {
+        //   const attributes = currentUser.signInDetails?.loginId ? {
+        //     email: currentUser.signInDetails.loginId,
+        //   } : {};
 
-          userData.attributes = attributes;
-          userData.email = attributes.email;
-        } catch (error) {
-          console.log('Could not get user attributes', error);
-        }
+        //   userData.attributes = attributes;
+        //   userData.email = attributes.email;
+        // } catch (error) {
+        //   console.log('Could not get user attributes', error);
+        // }
 
         setUser(userData);
       } catch (error) {

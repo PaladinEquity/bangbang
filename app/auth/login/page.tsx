@@ -26,6 +26,7 @@ function LoginPageContent() {
     try {
       // Verify the token by trying to get the current user
       const user = await getCurrentUser();
+      console.log(user);
       if (user) {
         setIsAuthenticated(true);
         router.push('/account');

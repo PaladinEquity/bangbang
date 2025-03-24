@@ -5,12 +5,8 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ChatWidget from "../components/ChatWidget";
 import PageTransition from "../components/PageTransition";
-import { Amplify } from "aws-amplify";
-import outputs from "@/amplify_outputs.json";
 import "@aws-amplify/ui-react/styles.css";
 import { AuthProvider } from "./AuthProvider";
-
-Amplify.configure(outputs);
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const playfairDisplay = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair-display" });
