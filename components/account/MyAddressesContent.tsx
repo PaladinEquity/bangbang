@@ -1,7 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAuth } from '../auth/AuthContext';
+import { updateUserAttributes } from 'aws-amplify/auth';
+import { toast } from 'react-hot-toast';
 
 // Define interface for address object
 interface Address {
@@ -31,8 +34,10 @@ interface AddressFormData {
 }
 
 export default function MyAddressesContent() {
-  // Empty addresses state to match the design
+  const { user, refreshUser } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // State for new/edit address form
   const [isAddingAddress, setIsAddingAddress] = useState(false);
@@ -93,55 +98,134 @@ export default function MyAddressesContent() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    if (isAddingAddress) {
-      // Add new address
-      const newAddress: Address = {
-        id: Date.now(), // Use timestamp as a simple ID
-        ...formData,
-      };
-      
-      // If this is the first address or marked as default, update other addresses
-      if (formData.isDefault || addresses.length === 0) {
-        const updatedAddresses = addresses.map(addr => ({
-          ...addr,
-          isDefault: false,
-        }));
-        
-        setAddresses([...updatedAddresses, newAddress]);
+  // Load addresses from user attributes when component mounts
+  useEffect(() => {
+    if (user) {
+      loadAddressesFromUserAttributes();
+    } else {
+      setAddresses([]);
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  // Function to load addresses from user attributes
+  const loadAddressesFromUserAttributes = () => {
+    setIsLoading(true);
+    try {
+      // Check if user has address attribute
+      if (user?.attributes?.address) {
+        try {
+          // Parse the JSON string from the address attribute
+          const addressesData = JSON.parse(user.attributes.address);
+          if (Array.isArray(addressesData)) {
+            setAddresses(addressesData);
+          }
+        } catch (error) {
+          console.error('Error parsing address data:', error);
+          setAddresses([]);
+        }
       } else {
-        setAddresses([...addresses, newAddress]);
+        setAddresses([]);
       }
-    } else if (isEditingAddress && currentAddress) {
-      // Edit existing address
-      const updatedAddresses = addresses.map(addr => {
-        if (addr.id === currentAddress.id) {
-          return {
-            ...addr,
-            ...formData,
-          };
+    } catch (error) {
+      console.error('Error loading addresses:', error);
+      setAddresses([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to save addresses to user attributes
+  const saveAddressesToUserAttributes = async (updatedAddresses: Address[]) => {
+    if (!user) return;
+    
+    try {
+      // Convert addresses array to JSON string
+      const addressesJson = JSON.stringify(updatedAddresses);
+      
+      // Update the address attribute in Cognito
+      await updateUserAttributes({
+        userAttributes: {
+          'address': addressesJson
         }
-        
-        // If the edited address is now default, remove default from others
-        if (formData.isDefault) {
-          return {
-            ...addr,
-            isDefault: addr.id === currentAddress.id,
-          };
-        }
-        
-        return addr;
       });
       
-      setAddresses(updatedAddresses);
+      // Refresh user data to get updated attributes
+      await refreshUser();
+      
+      return true;
+    } catch (error) {
+      console.error('Error saving addresses:', error);
+      toast.error('Failed to save address. Please try again.');
+      return false;
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
     
-    // Reset form
-    setIsAddingAddress(false);
-    setIsEditingAddress(false);
-    setCurrentAddress(null);
+    try {
+      let updatedAddresses: Address[] = [];
+      
+      if (isAddingAddress) {
+        // Add new address
+        const newAddress: Address = {
+          id: Date.now(), // Use timestamp as a simple ID
+          ...formData,
+        };
+        
+        // If this is the first address or marked as default, update other addresses
+        if (formData.isDefault || addresses.length === 0) {
+          updatedAddresses = addresses.map(addr => ({
+            ...addr,
+            isDefault: false,
+          }));
+          
+          updatedAddresses = [...updatedAddresses, newAddress];
+        } else {
+          updatedAddresses = [...addresses, newAddress];
+        }
+      } else if (isEditingAddress && currentAddress) {
+        // Edit existing address
+        updatedAddresses = addresses.map(addr => {
+          if (addr.id === currentAddress.id) {
+            return {
+              ...addr,
+              ...formData,
+            };
+          }
+          
+          // If the edited address is now default, remove default from others
+          if (formData.isDefault) {
+            return {
+              ...addr,
+              isDefault: addr.id === currentAddress.id,
+            };
+          }
+          
+          return addr;
+        });
+      }
+      
+      // Save to Cognito
+      const success = await saveAddressesToUserAttributes(updatedAddresses);
+      
+      if (success) {
+        setAddresses(updatedAddresses);
+        toast.success(isAddingAddress ? 'Address added successfully' : 'Address updated successfully');
+        
+        // Reset form
+        setIsAddingAddress(false);
+        setIsEditingAddress(false);
+        setCurrentAddress(null);
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -150,18 +234,53 @@ export default function MyAddressesContent() {
     setCurrentAddress(null);
   };
 
-  const handleDeleteAddress = (id: number) => {
-    const updatedAddresses = addresses.filter(addr => addr.id !== id);
-    setAddresses(updatedAddresses);
+  const handleDeleteAddress = async (id: number) => {
+    setIsSubmitting(true);
+    try {
+      const updatedAddresses = addresses.filter(addr => addr.id !== id);
+      
+      // If we're deleting the default address and there are other addresses,
+      // make the first one the default
+      if (addresses.find(addr => addr.id === id)?.isDefault && updatedAddresses.length > 0) {
+        updatedAddresses[0].isDefault = true;
+      }
+      
+      // Save to Cognito
+      const success = await saveAddressesToUserAttributes(updatedAddresses);
+      
+      if (success) {
+        setAddresses(updatedAddresses);
+        toast.success('Address deleted successfully');
+      }
+    } catch (error) {
+      console.error('Error deleting address:', error);
+      toast.error('Failed to delete address. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSetDefault = (id: number) => {
-    const updatedAddresses = addresses.map(addr => ({
-      ...addr,
-      isDefault: addr.id === id,
-    }));
-    
-    setAddresses(updatedAddresses);
+  const handleSetDefault = async (id: number) => {
+    setIsSubmitting(true);
+    try {
+      const updatedAddresses = addresses.map(addr => ({
+        ...addr,
+        isDefault: addr.id === id,
+      }));
+      
+      // Save to Cognito
+      const success = await saveAddressesToUserAttributes(updatedAddresses);
+      
+      if (success) {
+        setAddresses(updatedAddresses);
+        toast.success('Default address updated successfully');
+      }
+    } catch (error) {
+      console.error('Error setting default address:', error);
+      toast.error('Failed to update default address. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -169,7 +288,11 @@ export default function MyAddressesContent() {
       <h1 className="text-2xl font-bold mb-2">My Addresses</h1>
       <p className="text-sm text-gray-600 mb-8">Manage your shipping and billing addresses.</p>
       
-      {addresses.length === 0 && !isAddingAddress ? (
+      {isLoading ? (
+        <div className="text-center py-12">
+          <p className="text-lg mb-6">Loading addresses...</p>
+        </div>
+      ) : addresses.length === 0 && !isAddingAddress ? (
         <div className="text-center py-12">
           <p className="text-lg mb-6">You haven't added any addresses yet.</p>
           <button
@@ -321,7 +444,7 @@ export default function MyAddressesContent() {
                     type="submit"
                     className="bg-black text-white px-4 py-2 rounded text-sm hover:bg-gray-800 transition-colors"
                   >
-                    {isAddingAddress ? 'Add Address' : 'Save Changes'}
+                    {isSubmitting ? 'Saving...' : isAddingAddress ? 'Add Address' : 'Save Changes'}
                   </button>
                   <button
                     type="button"
