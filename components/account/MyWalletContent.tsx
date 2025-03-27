@@ -6,6 +6,9 @@ import { useAuth } from '../auth/AuthContext';
 import { generateClient } from 'aws-amplify/data';
 import { toast } from 'react-hot-toast';
 import type { Schema } from '@/amplify/data/resource';
+import { PaymentMethodSelector } from '../payment/PaymentMethodSelector';
+import { dynamoDBService } from '@/services/dynamoDBService';
+import { paymentService } from '@/services/paymentService';
 
 // Define types for our data models
 type PaymentMethod = {
@@ -38,7 +41,7 @@ export default function MyWalletContent() {
   const [showAddFundsDialog, setShowAddFundsDialog] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  
+
   // Form states for adding a payment method
   const [cardNumber, setCardNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -46,65 +49,82 @@ export default function MyWalletContent() {
   const [nameOnCard, setNameOnCard] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // Form states for adding funds
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
-  
+
   // Initialize the Amplify data client
   const client = generateClient<Schema>();
-  
+
   // Fetch wallet data on component mount
   useEffect(() => {
     if (user) {
       fetchWalletData();
-    } else {
-      // If no user, use sample data
-      setBalance(250.00);
-      setTransactions([
-        { id: 1, date: '2023-12-15', description: 'Wallpaper Purchase', amount: -120.00, status: 'completed' },
-        { id: 2, date: '2023-12-10', description: 'Account Deposit', amount: 200.00, status: 'completed' },
-        { id: 3, date: '2023-12-05', description: 'Promotional Credit', amount: 50.00, status: 'completed' },
-        { id: 4, date: '2023-11-28', description: 'Wallpaper Purchase', amount: -85.00, status: 'completed' },
-        { id: 5, date: '2023-11-20', description: 'Account Deposit', amount: 150.00, status: 'completed' },
-      ]);
-      setPaymentMethods([
-        { id: '1', cardType: 'visa', lastFour: '4242', expiryDate: '12/25', isDefault: true },
-        { id: '2', cardType: 'mastercard', lastFour: '8888', expiryDate: '09/24', isDefault: false },
-      ]);
-      setIsLoading(false);
     }
+    // else {
+    //   // If no user, use sample data
+    //   setBalance(250.00);
+    //   setTransactions([
+    //     { id: 1, date: '2023-12-15', description: 'Wallpaper Purchase', amount: -120.00, status: 'completed' },
+    //     { id: 2, date: '2023-12-10', description: 'Account Deposit', amount: 200.00, status: 'completed' },
+    //     { id: 3, date: '2023-12-05', description: 'Promotional Credit', amount: 50.00, status: 'completed' },
+    //     { id: 4, date: '2023-11-28', description: 'Wallpaper Purchase', amount: -85.00, status: 'completed' },
+    //     { id: 5, date: '2023-11-20', description: 'Account Deposit', amount: 150.00, status: 'completed' },
+    //   ]);
+    //   setPaymentMethods([
+    //     { id: '1', cardType: 'visa', lastFour: '4242', expiryDate: '12/25', isDefault: true },
+    //     { id: '2', cardType: 'mastercard', lastFour: '8888', expiryDate: '09/24', isDefault: false },
+    //   ]);
+    //   setIsLoading(false);
+    // }
   }, [user]);
-  
+
   // Fetch wallet data from AWS Amplify
   const fetchWalletData = async () => {
     try {
       setIsLoading(true);
-      
-      // In a real implementation, you would fetch data from your Amplify backend
-      // For now, we'll use sample data
-      // Example of how you would fetch data from a real Amplify backend:
-      // const walletData = await client.models.Wallet.get({ userId: user.userId });
-      
-      // Using sample data for now
-      const sampleData: WalletData = {
-        balance: 250.00,
-        paymentMethods: [
-          { id: '1', cardType: 'visa', lastFour: '4242', expiryDate: '12/25', isDefault: true },
-          { id: '2', cardType: 'mastercard', lastFour: '8888', expiryDate: '09/24', isDefault: false },
-        ],
-        transactions: [
-          { id: 1, date: '2023-12-15', description: 'Wallpaper Purchase', amount: -120.00, status: 'completed' },
-          { id: 2, date: '2023-12-10', description: 'Account Deposit', amount: 200.00, status: 'completed' },
-          { id: 3, date: '2023-12-05', description: 'Promotional Credit', amount: 50.00, status: 'completed' },
-          { id: 4, date: '2023-11-28', description: 'Wallpaper Purchase', amount: -85.00, status: 'completed' },
-          { id: 5, date: '2023-11-20', description: 'Account Deposit', amount: 150.00, status: 'completed' },
-        ],
-      };
-      
-      setBalance(sampleData.balance);
-      setPaymentMethods(sampleData.paymentMethods);
-      setTransactions(sampleData.transactions);
+
+      if (!user || !user.userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Fetch wallet data from DynamoDB
+      const wallet = await dynamoDBService.getOrCreateWallet(user.userId);
+      if (wallet && 'balance' in wallet) {
+        setBalance(wallet.balance);
+      } else if (wallet === null) {
+        // Handle case where wallet creation failed due to authorization
+        console.warn('Could not create wallet - using default balance');
+        setBalance(0); // Set default balance
+      } else {
+        console.error('Unexpected wallet data structure:', wallet);
+        toast.error('Error loading wallet data');
+        setBalance(0); // Set default balance as fallback
+      }
+
+      // Fetch payment methods from DynamoDB
+      const paymentMethodsData = await dynamoDBService.getPaymentMethodsByUser(user.userId);
+      const formattedPaymentMethods: PaymentMethod[] = paymentMethodsData.map(method => ({
+        id: method.paymentMethodId,
+        cardType: method.type === 'card' ? (method.brand || 'unknown') : 'ach',
+        lastFour: method.last4 || '****',
+        expiryDate: method.type === 'card' ? 'XX/XX' : method.brand || 'Bank Account',
+        isDefault: method.isDefault || false
+      }));
+      setPaymentMethods(formattedPaymentMethods);
+
+      // Fetch transactions from DynamoDB
+      const transactionsData = await dynamoDBService.getTransactionsByUser(user.userId);
+      const formattedTransactions: Transaction[] = transactionsData.map(transaction => ({
+        id: transaction.createdDate,
+        date: new Date(transaction.createdDate).toISOString().split('T')[0],
+        description: (transaction.metadata as any)?.description ||
+          (transaction.amount > 0 ? 'Account Deposit' : 'Wallpaper Purchase'),
+        amount: transaction.amount,
+        status: transaction.status || 'unknown'
+      }));
+      setTransactions(formattedTransactions)
     } catch (error) {
       console.error('Error fetching wallet data:', error);
       toast.error('Failed to load wallet data');
@@ -112,22 +132,26 @@ export default function MyWalletContent() {
       setIsLoading(false);
     }
   };
-  
+
   // Handle adding a new payment method
   const handleAddPaymentMethod = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       // Validate form data
       if (!cardNumber || !expiryDate || !cvv || !nameOnCard) {
         toast.error('Please fill in all required fields');
         return;
       }
-      
+
+      if (!user || !user.userId) {
+        throw new Error('User not authenticated');
+      }
+
       // Format card number to get last four digits
       const lastFour = cardNumber.replace(/\s/g, '').slice(-4);
-      
+
       // Determine card type based on first digit
       const firstDigit = cardNumber.replace(/\s/g, '')[0];
       let cardType = 'unknown';
@@ -135,42 +159,45 @@ export default function MyWalletContent() {
       else if (firstDigit === '5') cardType = 'mastercard';
       else if (firstDigit === '3') cardType = 'amex';
       else if (firstDigit === '6') cardType = 'discover';
+
+      // First, create a customer if not exists
+      let customerId = user.userId;
+
+      // Add payment method to Stripe via our payment service
+      const paymentMethodResult = await paymentService.addPaymentMethod({
+        customerId,
+        paymentMethodId: `pm_card_${cardType}_${lastFour}`, // This would normally come from Stripe.js
+      });
       
-      // Create new payment method object
-      const newPaymentMethod: PaymentMethod = {
-        id: Date.now().toString(), // In a real app, this would be generated by the backend
-        cardType,
-        lastFour,
-        expiryDate,
-        isDefault: isDefault || paymentMethods.length === 0, // Make default if it's the first card
-      };
-      
-      // In a real implementation, you would save this to your Amplify backend
-      // Example:
-      // await client.models.PaymentMethod.create({
-      //   userId: user.userId,
-      //   cardType,
-      //   lastFour,
-      //   expiryDate,
-      //   isDefault: isDefault || paymentMethods.length === 0,
-      // });
-      
-      // Update payment methods state
-      let updatedPaymentMethods;
-      if (isDefault) {
-        // If this is the new default, update all other cards to not be default
-        updatedPaymentMethods = paymentMethods.map(method => ({
-          ...method,
-          isDefault: false,
-        }));
-        updatedPaymentMethods.push(newPaymentMethod);
-      } else {
-        updatedPaymentMethods = [...paymentMethods, newPaymentMethod];
+      if (!paymentMethodResult || typeof paymentMethodResult !== 'object') {
+        throw new Error('Failed to add payment method');
       }
-      
-      setPaymentMethods(updatedPaymentMethods);
+
+      if ('error' in paymentMethodResult && paymentMethodResult.error) {
+        throw new Error(paymentMethodResult.error.toString());
+      }
+
+      if (!('paymentMethod' in paymentMethodResult)) {
+        throw new Error("Failed to retrieve payment method");
+      }
+      const paymentMethod = paymentMethodResult.paymentMethod;
+
+      if (!paymentMethod || typeof paymentMethod !== 'object' || !('id' in paymentMethod) || !paymentMethod.id) {
+        throw new Error('Failed to retrieve payment method ID');
+      }
+      // If this should be the default payment method
+      if (isDefault) {
+        await paymentService.setDefaultPaymentMethod({
+          customerId,
+          paymentMethodId: paymentMethod.id as string,
+        });
+      }
+
+      // Refresh payment methods from the backend
+      await fetchWalletData();
+
       toast.success('Payment method added successfully');
-      
+
       // Reset form
       setCardNumber('');
       setExpiryDate('');
@@ -185,51 +212,50 @@ export default function MyWalletContent() {
       setIsSubmitting(false);
     }
   };
-  
+
   // Handle adding funds to wallet
   const handleAddFunds = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       // Validate form data
       if (!selectedPaymentMethod || !depositAmount) {
         toast.error('Please select a payment method and enter an amount');
         return;
       }
-      
+
       const amount = parseFloat(depositAmount);
       if (isNaN(amount) || amount <= 0) {
         toast.error('Please enter a valid amount');
         return;
       }
-      
-      // In a real implementation, you would process the payment through AWS Amplify
-      // Example:
-      // await client.models.Transaction.create({
-      //   userId: user.userId,
-      //   amount,
-      //   description: 'Account Deposit',
-      //   paymentMethodId: selectedPaymentMethod,
-      //   date: new Date().toISOString(),
-      //   status: 'completed',
-      // });
-      
-      // Update balance and transactions
-      const newBalance = balance + amount;
-      setBalance(newBalance);
-      
-      const newTransaction: Transaction = {
-        id: Date.now(), // In a real app, this would be generated by the backend
-        date: new Date().toISOString().split('T')[0],
-        description: 'Account Deposit',
-        amount: amount,
-        status: 'completed',
-      };
-      
-      setTransactions([newTransaction, ...transactions]);
+
+      if (!user || !user.userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Process the deposit through the payment service
+      const depositResult = await paymentService.processDeposit({
+        amount,
+        currency: 'USD',
+        customerId: user.userId,
+        paymentMethodId: selectedPaymentMethod,
+        metadata: { description: 'Account Deposit' }
+      });
+      if (!depositResult || typeof depositResult !== 'object') {
+        throw new Error('Failed to add deposit result');
+      }
+
+      if ('error' in depositResult && depositResult.error) {
+        throw new Error(depositResult.error.toString());
+      }
+
+      // Refresh wallet data to get updated balance and transactions
+      await fetchWalletData();
+
       toast.success(`Successfully added $${amount.toFixed(2)} to your wallet`);
-      
+
       // Reset form
       setDepositAmount('');
       setSelectedPaymentMethod('');
@@ -241,61 +267,66 @@ export default function MyWalletContent() {
       setIsSubmitting(false);
     }
   };
-  
+
   // Handle setting a payment method as default
-  const handleSetDefaultPaymentMethod = (id: string) => {
-    const updatedPaymentMethods = paymentMethods.map(method => ({
-      ...method,
-      isDefault: method.id === id,
-    }));
-    
-    setPaymentMethods(updatedPaymentMethods);
-    toast.success('Default payment method updated');
-    
-    // In a real implementation, you would update this in your Amplify backend
-    // Example:
-    // await client.models.PaymentMethod.update({
-    //   id,
-    //   isDefault: true,
-    // });
+  const handleSetDefaultPaymentMethod = async (id: string) => {
+    try {
+      if (!user || !user.userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Update the default payment method in the backend
+      await paymentService.setDefaultPaymentMethod({
+        customerId: user.userId,
+        paymentMethodId: id,
+      });
+
+      // Refresh payment methods from the backend
+      await fetchWalletData();
+
+      toast.success('Default payment method updated');
+    } catch (error) {
+      console.error('Error setting default payment method:', error);
+      toast.error('Failed to update default payment method');
+    }
   };
-  
+
   // Format card number with spaces
   const formatCardNumber = (value: string) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
     const matches = v.match(/\d{4,16}/g);
     const match = matches && matches[0] || '';
     const parts = [];
-    
+
     for (let i = 0, len = match.length; i < len; i += 4) {
       parts.push(match.substring(i, i + 4));
     }
-    
+
     if (parts.length) {
       return parts.join(' ');
     } else {
       return value;
     }
   };
-  
+
   // Format expiry date (MM/YY)
   const formatExpiryDate = (value: string) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    
+
     if (v.length >= 2) {
       return v.slice(0, 2) + (v.length > 2 ? '/' + v.slice(2, 4) : '');
     }
-    
+
     return v;
   };
-  
+
   if (isLoading) {
     return <div className="flex justify-center py-8">Loading wallet data...</div>;
   }
-  
+
   return (
     <>
-      
+
       {/* Balance Card */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8" style={{ backgroundColor: "#FBE8E8" }}>
         <div className="flex justify-between items-center">
@@ -303,7 +334,7 @@ export default function MyWalletContent() {
             <h2 className="text-xl font-semibold mb-1">Current Balance</h2>
             <p className="text-3xl font-bold">${balance.toFixed(2)}</p>
           </div>
-          <button 
+          <button
             className="bg-gray-800 text-white px-6 py-2 text-sm hover:bg-gray-700 transition-colors"
             onClick={() => {
               // Only show add funds dialog if there's at least one payment method
@@ -325,11 +356,99 @@ export default function MyWalletContent() {
           </button>
         </div>
       </div>
+      
+      {/* Add Funds Dialog */}
+      <AnimatePresence>
+        {showAddFundsDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ type: 'spring', damping: 20 }}
+              className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold">Add Funds to Wallet</h2>
+                  <button
+                    onClick={() => setShowAddFundsDialog(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                    disabled={isSubmitting}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+
+                <form onSubmit={handleAddFunds}>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                    <select
+                      className="w-full border border-gray-300 rounded p-2 text-sm"
+                      value={selectedPaymentMethod}
+                      onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                      required
+                    >
+                      <option value="">Select a payment method</option>
+                      {paymentMethods.map(method => (
+                        <option key={method.id} value={method.id}>
+                          {method.cardType === 'ach' ? 'Bank account' : method.cardType.charAt(0).toUpperCase() + method.cardType.slice(1)} ending in {method.lastFour}
+                          {method.isDefault ? ' (Default)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2">$</span>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded p-2 pl-6 text-sm"
+                        placeholder="0.00"
+                        value={depositAmount}
+                        onChange={(e) => {
+                          // Only allow numbers and decimal point
+                          const value = e.target.value.replace(/[^0-9.]/g, '');
+                          setDepositAmount(value);
+                        }}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      className="text-gray-600 mr-4 px-4 py-2 text-sm"
+                      onClick={() => setShowAddFundsDialog(false)}
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-gray-800 text-white px-6 py-2 text-sm hover:bg-gray-700 transition-colors"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? 'Processing...' : 'Add Funds'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Transaction History */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
         <h2 className="text-xl font-semibold mb-4">Transaction History</h2>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -366,46 +485,60 @@ export default function MyWalletContent() {
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Payment Methods</h2>
-          <button 
+          <button
             onClick={() => setShowPaymentDialog(true)}
             className="text-sm text-gray-600 hover:text-gray-900"
           >
             + Add New
           </button>
         </div>
-        
-        <div className="border rounded-lg p-4 mb-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <div className="w-10 h-6 bg-blue-600 rounded mr-3"></div>
-            <div>
-              <p className="font-medium">Visa ending in 4242</p>
-              <p className="text-sm text-gray-500">Expires 12/25</p>
+
+        {paymentMethods.length > 0 ? (
+          paymentMethods.map((method) => (
+            <div key={method.id} className="border rounded-lg p-4 mb-4 flex justify-between items-center">
+              <div className="flex items-center">
+                <div 
+                  className={`w-10 h-6 rounded mr-3 ${method.cardType === 'visa' ? 'bg-blue-600' : 
+                    method.cardType === 'mastercard' ? 'bg-red-500' : 
+                    method.cardType === 'amex' ? 'bg-blue-400' : 
+                    method.cardType === 'discover' ? 'bg-orange-500' : 
+                    method.cardType === 'ach' ? 'bg-green-600' : 'bg-gray-500'}`}
+                ></div>
+                <div>
+                  <p className="font-medium">
+                    {method.cardType === 'ach' ? 'Bank account' : method.cardType.charAt(0).toUpperCase() + method.cardType.slice(1)} ending in {method.lastFour}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {method.cardType === 'ach' ? method.expiryDate : `Expires ${method.expiryDate}`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center">
+                {method.isDefault && (
+                  <span className="text-xs bg-gray-200 px-2 py-1 rounded mr-2">Default</span>
+                )}
+                {!method.isDefault && (
+                  <button 
+                    onClick={() => handleSetDefaultPaymentMethod(method.id)}
+                    className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded mr-2"
+                  >
+                    Set Default
+                  </button>
+                )}
+              </div>
             </div>
+          ))
+        ) : (
+          <div className="text-center py-6 text-gray-500">
+            No payment methods added yet. Click "+ Add New" to add your first payment method.
           </div>
-          <div className="flex items-center">
-            <span className="text-xs bg-gray-200 px-2 py-1 rounded mr-2">Default</span>
-            <button className="text-sm text-gray-500 hover:text-gray-700">Edit</button>
-          </div>
-        </div>
-        
-        <div className="border rounded-lg p-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <div className="w-10 h-6 bg-red-500 rounded mr-3"></div>
-            <div>
-              <p className="font-medium">Mastercard ending in 8888</p>
-              <p className="text-sm text-gray-500">Expires 09/24</p>
-            </div>
-          </div>
-          <div>
-            <button className="text-sm text-gray-500 hover:text-gray-700">Edit</button>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Promo Codes */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-xl font-semibold mb-4">Promo Codes</h2>
-        
+
         <div className="flex mb-4">
           <input
             type="text"
@@ -416,7 +549,7 @@ export default function MyWalletContent() {
             Apply
           </button>
         </div>
-        
+
         <div className="border rounded-lg p-4 mb-4">
           <div className="flex justify-between items-center">
             <div>
@@ -427,7 +560,7 @@ export default function MyWalletContent() {
           </div>
           <p className="text-xs text-gray-500 mt-2">Expires: December 31, 2023</p>
         </div>
-        
+
         <div className="border rounded-lg p-4">
           <div className="flex justify-between items-center">
             <div>
@@ -439,12 +572,12 @@ export default function MyWalletContent() {
           <p className="text-xs text-gray-500 mt-2">Expired: November 30, 2023</p>
         </div>
       </div>
-      
+
       {/* Payment Method Dialog */}
       <AnimatePresence>
         {showPaymentDialog && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
@@ -454,7 +587,7 @@ export default function MyWalletContent() {
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-semibold">Add Payment Method</h2>
-                  <button 
+                  <button
                     onClick={() => setShowPaymentDialog(false)}
                     className="text-gray-500 hover:text-gray-700"
                     disabled={isSubmitting}
@@ -465,100 +598,120 @@ export default function MyWalletContent() {
                     </svg>
                   </button>
                 </div>
-                
-                <form className="space-y-4" onSubmit={handleAddPaymentMethod}>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
-                    <input 
-                      type="text" 
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-200 focus:border-pink-300"
-                      placeholder="1234 5678 9012 3456"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                      maxLength={19} // 16 digits + 3 spaces
-                      required
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name on Card</label>
-                    <input 
-                      type="text" 
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-200 focus:border-pink-300"
-                      placeholder="John Doe"
-                      value={nameOnCard}
-                      onChange={(e) => setNameOnCard(e.target.value)}
-                      required
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Expiration Date</label>
-                      <input 
-                        type="text" 
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-200 focus:border-pink-300"
-                        placeholder="MM/YY"
-                        value={expiryDate}
-                        onChange={(e) => setExpiryDate(formatExpiryDate(e.target.value))}
-                        maxLength={5} // MM/YY format
-                        required
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">CVV</label>
-                      <input 
-                        type="text" 
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-200 focus:border-pink-300"
-                        placeholder="123"
-                        value={cvv}
-                        onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                        maxLength={4} // 3 digits for most cards, 4 for Amex
-                        required
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cardholder Name</label>
-                    <input 
-                      type="text" 
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-0 focus:border-transparent"
-                      placeholder="John Doe"
-                    />
-                  </div>
-                  
-                  <div className="flex items-center mt-2">
-                    <input 
-                      type="checkbox" 
-                      id="defaultCard" 
-                      className="h-4 w-4 text-gray-800 focus:ring-0 border-gray-300 rounded"
-                    />
-                    <label htmlFor="defaultCard" className="ml-2 block text-sm text-gray-700">
-                      Set as default payment method
-                    </label>
-                  </div>
-                  
-                  <div className="flex justify-end space-x-3 mt-6">
-                    <button
-                      type="button"
-                      onClick={() => setShowPaymentDialog(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-0 focus:border-transparent"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="px-4 py-2 bg-gray-800 text-white rounded-md text-sm font-medium hover:bg-gray-700 focus:outline-none focus:ring-0 focus:border-transparent"
-                    >
-                      Save Payment Method
-                    </button>
-                  </div>
-                </form>
+
+                {/* Import the PaymentMethodSelector component */}
+                <div className="mt-4">
+                  <PaymentMethodSelector
+                    onCardSuccess={async (paymentMethod) => {
+                      try {
+                        setIsSubmitting(true);
+                        
+                        if (!user || !user.userId) {
+                          throw new Error('User not authenticated');
+                        }
+                        
+                        // Add payment method to Stripe via our payment service
+                        const paymentMethodResult = await paymentService.addPaymentMethod({
+                          customerId: user.userId,
+                          paymentMethodId: paymentMethod.id,
+                        });
+                        
+                        if (!paymentMethodResult || typeof paymentMethodResult !== 'object') {
+                          throw new Error('Failed to add payment method');
+                        }
+
+                        if ('error' in paymentMethodResult && paymentMethodResult.error) {
+                          throw new Error(paymentMethodResult.error.toString());
+                        }
+                        
+                        // If this should be the default payment method
+                        if (isDefault) {
+                          await paymentService.setDefaultPaymentMethod({
+                            customerId: user.userId,
+                            paymentMethodId: paymentMethod.id,
+                          });
+                        }
+                        
+                        // Handle card payment method for UI
+                        const newPaymentMethod: PaymentMethod = {
+                          id: paymentMethod.id,
+                          cardType: paymentMethod.card.brand,
+                          lastFour: paymentMethod.card.last4,
+                          expiryDate: `${paymentMethod.card.exp_month}/${paymentMethod.card.exp_year}`,
+                          isDefault: isDefault,
+                        };
+
+                        // Refresh wallet data from the backend
+                        await fetchWalletData();
+                        
+                        toast.success('Payment method added successfully');
+                        setShowPaymentDialog(false);
+                      } catch (error) {
+                        console.error('Error adding payment method:', error);
+                        toast.error('Failed to add payment method');
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    }}
+                    onACHSuccess={async (paymentMethod) => {
+                      try {
+                        setIsSubmitting(true);
+                        
+                        if (!user || !user.userId) {
+                          throw new Error('User not authenticated');
+                        }
+                        
+                        // Add payment method to Stripe via our payment service
+                        const paymentMethodResult = await paymentService.addPaymentMethod({
+                          customerId: user.userId,
+                          paymentMethodId: paymentMethod.id,
+                        });
+                        
+                        if (!paymentMethodResult || typeof paymentMethodResult !== 'object') {
+                          throw new Error('Failed to add payment method');
+                        }
+
+                        if ('error' in paymentMethodResult && paymentMethodResult.error) {
+                          throw new Error(paymentMethodResult.error.toString());
+                        }
+                        
+                        // If this should be the default payment method
+                        if (isDefault) {
+                          await paymentService.setDefaultPaymentMethod({
+                            customerId: user.userId,
+                            paymentMethodId: paymentMethod.id,
+                          });
+                        }
+                        
+                        // Handle ACH payment method for UI
+                        const newPaymentMethod: PaymentMethod = {
+                          id: paymentMethod.id,
+                          cardType: 'ach', // Use 'ach' as the type for bank accounts
+                          lastFour: paymentMethod.bank_account.last4,
+                          expiryDate: `${paymentMethod.bank_account.bank_name}`, // Store bank name in expiryDate field
+                          isDefault: isDefault,
+                        };
+
+                        // Refresh wallet data from the backend
+                        await fetchWalletData();
+                        
+                        toast.success('Bank account added successfully');
+                        setShowPaymentDialog(false);
+                      } catch (error) {
+                        console.error('Error adding payment method:', error);
+                        toast.error('Failed to add payment method');
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    }}
+                    onError={(error) => {
+                      console.error('Error adding payment method:', error);
+                      toast.error('Failed to add payment method');
+                    }}
+                    isDefault={isDefault}
+                    onDefaultChange={setIsDefault}
+                  />
+                </div>
               </div>
             </motion.div>
           </div>

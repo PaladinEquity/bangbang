@@ -29,7 +29,7 @@ function ForgotPasswordPageContent() {
   }, []);
   
   useEffect(() => {
-    const redirect = searchParams.get('redirect');
+    const redirect = searchParams ? searchParams.get('redirect') : '/';
     if (redirect && redirect !== '/auth/login' && redirect !== '/auth/register' && redirect !== '/auth/forgot-password') {
       // Clean up the redirect URL if it contains the current URL
       const cleanRedirect = redirect.includes('?redirect=') 

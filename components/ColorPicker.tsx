@@ -4,11 +4,13 @@ import React, { useState, useRef, useEffect } from 'react';
 
 interface ColorPickerProps {
   onColorSelect?: (color: string) => void;
+  onRemove?: (color: string) => void;
   initialColor?: string;
 }
 
 const ColorPicker: React.FC<ColorPickerProps> = ({
   onColorSelect,
+  onRemove,
   initialColor = '#ffffff' // Default to a pink color
 }) => {
   const [currentColor, setCurrentColor] = useState(initialColor);
@@ -91,9 +93,9 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
     // Update selector position with constrained coordinates
     setSelectorPosition({ x, y });
 
-    if (onColorSelect) {
-      onColorSelect(color);
-    }
+    // if (onColorSelect) {
+    //   onColorSelect(color);
+    // }
   };
 
   // State to track slider position
@@ -142,13 +144,16 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
     const newColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     setCurrentColor(newColor);
 
-    if (onColorSelect) {
-      onColorSelect(newColor);
-    }
+    // if (onColorSelect) {
+    //   onColorSelect(newColor);
+    // }
   };
 
   // Remove a color from selected colors
   const removeSelectedColor = (indexToRemove: number) => {
+    if (onRemove) {
+      onRemove(selectedColors[indexToRemove]);
+    }
     setSelectedColors(selectedColors.filter((_, index) => index !== indexToRemove));
   };
 
@@ -156,15 +161,18 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
   const addCurrentColor = () => {
     if (!selectedColors.includes(currentColor)) {
       setSelectedColors([...selectedColors, currentColor]);
+      if (onColorSelect) {
+        onColorSelect(currentColor);
+      }
     }
   };
 
   // Select a color from the palette
   const selectPaletteColor = (color: string) => {
     setCurrentColor(color);
-    if (onColorSelect) {
-      onColorSelect(color);
-    }
+    // if (onColorSelect) {
+    //   onColorSelect(color);
+    // }
   };
 
   // Set up event listeners for mouse movement

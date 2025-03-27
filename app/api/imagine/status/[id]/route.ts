@@ -9,7 +9,7 @@ async function getImagineApiKey() {
   // return process.env.IMAGINE_API_KEY;
   
   // For demo purposes, we'll return a placeholder
-  return 'imgn_wnafojyehxkrxlt65km7yilgr3adobwn';
+  return process.env.IMAGINE_API_KEY || 'imgn_wnafojyehxkrxlt65km7yilgr3adobwn';
 }
 
 // Handler for GET requests to check image generation status
@@ -26,15 +26,14 @@ export async function GET(request: NextRequest, { params }: any) {
     }
 
     const key = await getImagineApiKey();
-    
     const response = await fetch(`${IMAGINE_API_URL}${requestId}`, {
       method: 'GET',
+      cache: 'no-store',
       headers: {
         'Authorization': `Bearer ${key}`,
         'Content-Type': 'application/json'
       }
     });
-
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Error from Imagine API:', errorData);
@@ -45,11 +44,8 @@ export async function GET(request: NextRequest, { params }: any) {
     }
 
     const data = await response.json();
-    
-    return NextResponse.json({
-      status: data.data.status,
-      progress: data.data.progress
-    });
+    console.log("loop------------",data.data.status, `${IMAGINE_API_URL}${requestId}`);
+    return NextResponse.json(data.data);
   } catch (error) {
     console.error('Error checking image status:', error);
     return NextResponse.json(

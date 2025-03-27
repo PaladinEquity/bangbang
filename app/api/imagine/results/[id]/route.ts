@@ -9,7 +9,7 @@ async function getImagineApiKey() {
   // return process.env.IMAGINE_API_KEY;
   
   // For demo purposes, we'll return a placeholder
-  return 'imgn_wnafojyehxkrxlt65km7yilgr3adobwn';
+  return process.env.IMAGINE_API_KEY || 'imgn_wnafojyehxkrxlt65km7yilgr3adobwn';
 }
 
 // Handler for GET requests to retrieve generated images

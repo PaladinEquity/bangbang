@@ -7,6 +7,7 @@ import ColorPicker from '@/components/ColorPicker';
 import ImageSelector from '@/components/ImageSelector';
 import WallpaperSimulation from '@/components/WallpaperSimulation';
 import { generateImages, checkImageStatus, getImageResults } from '@/services/imageService';
+import { databaseService } from '@/services/databaseService';
 
 export default function ImageCreation() {
   const router = useRouter();
@@ -106,16 +107,47 @@ export default function ImageCreation() {
     router.push(`/product/custom?image=${encodeURIComponent(imageUrl)}&size=${selectedSize}`);
   };
 
-  const addToCart = () => {
+  const addToCart = async () => {
     if (!selectedImage) return;
     
-    // In a real implementation, this would add the product to cart via API
     setStatusMessage('Adding product to cart...');
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Generate a unique project ID
+      const projectId = `proj_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      
+      // Save wallpaper data to database
+      await databaseService.saveWallpaperData({
+        projectId,
+        storageKey: selectedImage,
+        mimeType: 'image/jpeg', // Assuming JPEG format, adjust if needed
+        generationDescription: { prompt }, // Convert string to object with prompt property
+        userId: 'user123', // In a real app, get this from auth context
+      });
+      
+      // Add to cart in local storage
+      const cartItem = {
+        id: `cart_${Date.now()}`,
+        projectId,
+        name: 'Custom Wallpaper Design',
+        description: prompt || 'Custom generated wallpaper',
+        price: 49.99,
+        quantity: 1,
+        imageUrl: selectedImage,
+        options: {
+          rollSize: "396' l x 21' w",
+          patternSize: '21" (half)',
+        }
+      };
+      
+      // Cart data is now fully managed in DynamoDB
+      // No need to use localStorage anymore
+      
       setStatusMessage('Product added to cart successfully!');
-    }, 1000);
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      setStatusMessage('Failed to add product to cart. Please try again.');
+    }
   };
 
   return (

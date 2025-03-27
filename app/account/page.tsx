@@ -16,8 +16,8 @@ function AccountPageContent() {
   const [activeTab, setActiveTab] = useState('account');
   
   useEffect(() => {
-    // Get the tab from URL query parameter or default to 'account'
-    const tab = searchParams.get('tab') || 'account';
+    // Check if searchParams is not null before accessing its methods
+    const tab = searchParams ? searchParams.get('tab') || 'account' : 'account';
     setActiveTab(tab);
   }, [searchParams]);
 

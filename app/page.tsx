@@ -78,7 +78,7 @@ export default function Home() {
       }
       
       if (patternStructure.trim()) {
-        fullPrompt += `, ${patternStructure} pattern`;
+        fullPrompt += `, ${patternStructure} pattern structure`;
       }
       
       if (moodAmbiance.trim()) {
@@ -90,7 +90,7 @@ export default function Home() {
       }
       
       if (toneAdjective.trim()) {
-        fullPrompt += `, ${toneAdjective} tone`;
+        fullPrompt += `, ${toneAdjective} tone, `;
       }
 
       // Generate images using our service
@@ -327,7 +327,7 @@ export default function Home() {
 
       {/* Color Picker */}
       <div className="text-md mb-2 w-3/4 mx-auto">
-        {selectedColors.length > 0 && (
+        {/* {selectedColors.length > 0 && (
           <div className="mb-4">
             <p className="mb-2 font-medium">Selected Colors:</p>
             <div className="flex flex-wrap gap-2">
@@ -351,10 +351,10 @@ export default function Home() {
               ))}
             </div>
           </div>
-        )}
+        )} */}
       </div>
       <div className="w-full sm:w-11/12 md:w-3/4 mx-auto px-4 sm:px-0">
-        <ColorPicker onColorSelect={handleColorSelect} />
+        <ColorPicker onColorSelect={handleColorSelect} onRemove={removeColor} />
       </div>
 
       {/* Create Section */}
