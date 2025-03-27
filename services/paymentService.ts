@@ -176,7 +176,7 @@ export const paymentService = {
         }
       }
 
-      return { paymentMethods: formattedPaymentMethods };
+      return { paymentMethods };
     } catch (error) {
       console.error('Error listing payment methods:', error);
       throw error;
