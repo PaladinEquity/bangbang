@@ -55,7 +55,7 @@ function LoginPageContent() {
 
   useEffect(() => {
     // Check for redirect parameter in URL using Next.js useSearchParams
-    const redirect = searchParams.get('redirect');
+    const redirect = (searchParams as any).get('redirect');
     if (redirect && redirect !== '/auth/login' && redirect !== '/auth/register') {
       // Decode the URL if it's URL encoded
       // const decodedRedirect = decodeURIComponent(cleanRedirect);

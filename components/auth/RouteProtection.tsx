@@ -29,7 +29,7 @@ export default function RouteProtection({
 
       // Redirect unauthenticated users away from protected pages
       if (!isAuthenticated && requireAuth) {
-        const returnUrl = encodeURIComponent(pathname);
+        const returnUrl = encodeURIComponent((pathname as any));
         router.replace(`/auth/login?redirect=${returnUrl}`);
         return;
       }

@@ -68,7 +68,7 @@ export const storageService = {
         generationDescription,
         dimensions,
         fileSize,
-        thumbnailKey,
+        thumbnailKey : thumbnailKey || undefined,
         status: 'active'
       });
 

@@ -34,10 +34,10 @@ export default function ProductDetail() {
   
   useEffect(() => {
     // In a real app, this would be an API call
-    const productId = parseInt(params.id as string);
+    const productId = parseInt((params as any).id as string);
     const foundProduct = productData.find(p => p.id === productId);
     setProduct(foundProduct || null);
-  }, [params.id]);
+  }, [(params as any).id]);
 
   if (!product) {
     return (
