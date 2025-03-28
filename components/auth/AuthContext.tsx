@@ -2,12 +2,20 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getCurrentUser, signOut, fetchAuthSession,fetchUserAttributes } from 'aws-amplify/auth';
-import { Hub } from 'aws-amplify/utils';
+import { Hub,parseAmplifyConfig  } from 'aws-amplify/utils';
 import { Amplify } from "aws-amplify";
 
 import outputs from "@/amplify_outputs.json";
 
-Amplify.configure(outputs);
+const amplifyConfig = parseAmplifyConfig(outputs);
+Amplify.configure({
+  ...amplifyConfig,
+  API: {
+    ...amplifyConfig.API,
+    REST: outputs.custom.API,
+  },
+});
+
 type AuthUser = {
   username: string;
   userId: string;

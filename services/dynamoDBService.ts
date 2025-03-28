@@ -120,6 +120,8 @@ export const dynamoDBService = {
         balance: 0,
         currency,
         lastUpdated: new Date().toISOString()
+      }, {
+        authMode: 'userPool'
       });
 
       console.log('Wallet created:', result);
@@ -154,6 +156,11 @@ export const dynamoDBService = {
   // Payment Method methods
   async savePaymentMethod(data: PaymentMethodInput) {
     try {
+      // Validate metadata if provided
+      if (data.metadata && typeof data.metadata !== 'object') {
+        throw new Error('Metadata must be an object');
+      }
+
       // If this is set as default, unset any existing default methods
       if (data.isDefault) {
         await this.unsetDefaultPaymentMethods(data.userId, data.type);
@@ -161,6 +168,7 @@ export const dynamoDBService = {
 
       const result = await client.models.PaymentMethod.create({
         ...data,
+        metadata: data.metadata || {},
         createdDate: new Date().toISOString()
       });
 

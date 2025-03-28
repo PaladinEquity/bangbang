@@ -67,9 +67,9 @@ export const paymentService = {
    */
   createCustomer: async (data: CustomerData) => {
     try {
-      const response = await post({
-        apiName: 'payment',
-        path: '/',
+      const restOperation = await post({
+        apiName: 'paymentApi',
+        path: '/payment',
         options: {
           body: {
             action: 'createCustomer',
@@ -78,7 +78,11 @@ export const paymentService = {
         }
       });
 
-      return (await response.response).body.json();
+      const { body } = await restOperation.response;
+
+      const response = await body.json();
+
+      return response;
       // return await response;
     } catch (error) {
       console.error('Error creating customer:', error);
@@ -91,41 +95,34 @@ export const paymentService = {
    */
   addPaymentMethod: async (data: PaymentMethodData) => {
     try {
-      // First, try to save the payment method directly to DynamoDB without calling the API
-      // since the 'payment' API is not properly configured in Amplify outputs
-      const paymentMethodId = data.paymentMethodId;
-      const customerId = data.customerId;
-      
-      // Create a mock payment method response
-      const mockPaymentMethod = {
-        id: paymentMethodId,
-        card: {
-          last4: paymentMethodId.slice(-4),
-          brand: paymentMethodId.includes('visa') ? 'visa' : 
-                 paymentMethodId.includes('mastercard') ? 'mastercard' : 
-                 paymentMethodId.includes('amex') ? 'amex' : 
-                 paymentMethodId.includes('discover') ? 'discover' : 'unknown'
+      const restOperation = await post({
+        apiName: 'paymentApi',
+        path: '/payment',
+        options: {
+          body: {
+            action: 'addPaymentMethod',
+            data
+          }
         }
-      };
-      
-      // Save the payment method to DynamoDB
-
-      // Save payment method directly to DynamoDB
-      await dynamoDBService.savePaymentMethod({
-        userId: data.customerId, // Using customerId as userId for simplicity
-        customerId: data.customerId,
-        paymentMethodId: data.paymentMethodId,
-        type: 'card',
-        last4: mockPaymentMethod.card.last4,
-        brand: mockPaymentMethod.card.brand,
-        isDefault: true, // Make this the default payment method
-        metadata: {}
       });
+
+      const { body } = await restOperation.response;
+
+      const result = await body.json();
       
-      // Return a mock result that matches the expected structure
-      const result = {
-        paymentMethod: mockPaymentMethod
-      };
+      // Save payment method to DynamoDB if API call succeeds
+      if ((result as any).success) {
+        await dynamoDBService.savePaymentMethod({
+          userId: data.customerId,
+          customerId: data.customerId,
+          paymentMethodId: data.paymentMethodId,
+          type: 'card',
+          last4: (result as any).paymentMethod.card?.last4 || '',
+          brand: (result as any).paymentMethod.card?.brand || 'unknown',
+          isDefault: true,
+          metadata: {}
+        });
+      }
 
       return result;
     } catch (error) {
@@ -148,8 +145,8 @@ export const paymentService = {
 
       // If no payment methods in DynamoDB, fetch from Stripe
       const response = await post({
-        apiName: 'payment',
-        path: '/',
+        apiName: 'paymentApi',
+        path: '/payment',
         options: {
           body: {
             action: 'listPaymentMethods',
@@ -158,7 +155,9 @@ export const paymentService = {
         }
       });
 
-      const result = (await response.response).body.json();
+      const { body } = await response.response;
+
+      const result = await body.json();
 
       // Save payment methods to DynamoDB
       if ((result as any).paymentMethods && (result as any).paymentMethods.length > 0) {
@@ -188,13 +187,27 @@ export const paymentService = {
    */
   setDefaultPaymentMethod: async (data: PaymentMethodData) => {
     try {
-      // Update payment method in DynamoDB directly without calling the API
-      // since the 'payment' API is not properly configured in Amplify outputs
+      const response = await post({
+        apiName: 'paymentApi',
+        path: '/payment',
+        options: {
+          body: {
+            action: 'setDefaultPaymentMethod',
+            data
+          }
+        }
+      });
 
-      // Since the API call is failing, we'll directly update the DynamoDB record
-      const result = await dynamoDBService.setDefaultPaymentMethod(data.customerId, data.paymentMethodId);
+      const { body } = await response.response;
 
-      return { success: true, paymentMethod: result };
+      const result = await body.json();
+      
+      // Update payment method in DynamoDB if API call succeeds
+      if ((result as any).success) {
+        await dynamoDBService.setDefaultPaymentMethod(data.customerId, data.paymentMethodId);
+      }
+
+      return result;
     } catch (error) {
       console.error('Error setting default payment method:', error);
       throw error;
@@ -206,25 +219,37 @@ export const paymentService = {
    */
   processDeposit: async (data: DepositData) => {
     try {
-      // Skip the API call since it's not properly configured
-
-      // Directly record the transaction in DynamoDB
-      await dynamoDBService.createTransaction({
-        userId: data.customerId, // Using customerId as userId for simplicity
-        customerId: data.customerId,
-        amount: data.amount,
-        currency: data.currency || 'USD',
-        paymentMethodId: data.paymentMethodId,
-        paymentType: 'card',
-        status: 'completed',
-        metadata: { ...data.metadata, type: 'wallet_deposit' }
+      const response = await post({
+        apiName: 'paymentApi',
+        path: '/payment',
+        options: {
+          body: {
+            action: 'processDeposit',
+            data
+          }
+        }
       });
 
-      // Update wallet balance
-      await dynamoDBService.updateWalletBalance(data.customerId, data.amount);
+      const result = (await response.response).body.json();
+      
+      // Record transaction in DynamoDB if API call succeeds
+      if ((result as any).success) {
+        await dynamoDBService.createTransaction({
+          userId: data.customerId,
+          customerId: data.customerId,
+          amount: data.amount,
+          currency: data.currency || 'USD',
+          paymentMethodId: data.paymentMethodId,
+          paymentType: 'card',
+          status: 'completed',
+          metadata: { ...data.metadata, type: 'wallet_deposit' }
+        });
 
-      // Return a mock successful result
-      return { success: true };
+        // Update wallet balance
+        await dynamoDBService.updateWalletBalance(data.customerId, data.amount);
+      }
+
+      return result;
     } catch (error) {
       console.error('Error processing deposit:', error);
       throw error;
@@ -236,22 +261,34 @@ export const paymentService = {
    */
   createPaymentIntent: async (data: PaymentIntentData) => {
     try {
-      // Skip the API call since it's not properly configured
-
-      // Directly record the transaction in DynamoDB
-      await dynamoDBService.createTransaction({
-        userId: data.customerId, // Using customerId as userId for simplicity
-        customerId: data.customerId,
-        amount: data.amount,
-        currency: data.currency || 'USD',
-        paymentMethodId: data.paymentMethodId,
-        paymentType: 'card',
-        status: 'pending',
-        metadata: data.metadata
+      const response = await post({
+        apiName: 'paymentApi',
+        path: '/payment',
+        options: {
+          body: {
+            action: 'createPaymentIntent',
+            data
+          }
+        }
       });
 
-      // Return a mock successful result with a client secret
-      return { clientSecret: `mock_pi_${Date.now()}_secret` };
+      const result = (await response.response).body.json();
+      
+      // Record transaction in DynamoDB if API call succeeds
+      if ((result as any).clientSecret) {
+        await dynamoDBService.createTransaction({
+          userId: data.customerId,
+          customerId: data.customerId,
+          amount: data.amount,
+          currency: data.currency || 'USD',
+          paymentMethodId: data.paymentMethodId,
+          paymentType: 'card',
+          status: 'pending',
+          metadata: data.metadata
+        });
+      }
+
+      return result;
     } catch (error) {
       console.error('Error creating payment intent:', error);
       throw error;
@@ -264,8 +301,8 @@ export const paymentService = {
   confirmPayment: async (paymentIntentId: string) => {
     try {
       const response = await post({
-        apiName: 'payment',
-        path: '/',
+        apiName: 'paymentApi',
+        path: '/payment',
         options: {
           body: {
             action: 'confirmPayment',
@@ -287,8 +324,8 @@ export const paymentService = {
   createBankAccount: async (data: ACHBankAccountData) => {
     try {
       const response = await post({
-        apiName: 'payment',
-        path: '/',
+        apiName: 'paymentApi',
+        path: '/payment',
         options: {
           body: {
             action: 'createBankAccount',
@@ -310,8 +347,8 @@ export const paymentService = {
   verifyBankAccount: async (bankAccountId: string, amounts: number[]) => {
     try {
       const response = await post({
-        apiName: 'payment',
-        path: '/',
+        apiName: 'paymentApi',
+        path: '/payment',
         options: {
           body: {
             action: 'verifyBankAccount',
@@ -333,8 +370,8 @@ export const paymentService = {
   processACHPayment: async (data: ACHPaymentData) => {
     try {
       const response = await post({
-        apiName: 'payment',
-        path: '/',
+        apiName: 'paymentApi',
+        path: '/payment',
         options: {
           body: {
             action: 'processACHPayment',
@@ -370,8 +407,8 @@ export const paymentService = {
   saveTransaction: async (data: TransactionData) => {
     try {
       const response = await post({
-        apiName: 'payment',
-        path: '/',
+        apiName: 'paymentApi',
+        path: '/payment',
         options: {
           body: {
             action: 'saveTransaction',
