@@ -2,7 +2,7 @@ import Stripe from 'stripe';
 import type { Handler } from 'aws-lambda';
 
 // Initialize Stripe with the secret key from environment variables
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_51R6bdvFpMNEVZL2GmEYx4uKwUZTgjaPa6R2LC9886HLArIxWeGcbxgbqZ1drXnSdF3PWqJiw38RpBB9KjtANNjW700czkwf2WJ', {
   apiVersion: '2025-02-24.acacia', // Updated to the correct version
 });
 
