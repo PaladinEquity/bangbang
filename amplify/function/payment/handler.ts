@@ -11,7 +11,6 @@ export const handler: Handler = async (event, context) => {
     // Parse the incoming request body
     const body = JSON.parse(event.body || '{}');
     const { action, data } = body;
-
     // Route to the appropriate handler based on the action
     switch (action) {
       case 'createPaymentIntent':
@@ -39,6 +38,10 @@ export const handler: Handler = async (event, context) => {
       default:
         return {
           statusCode: 400,
+          headers: {
+            "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+            "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+          },
           body: JSON.stringify({ error: 'Invalid action' }),
         };
     }
@@ -46,6 +49,10 @@ export const handler: Handler = async (event, context) => {
     console.error('Error processing payment request:', error);
     return {
       statusCode: 500,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
@@ -68,11 +75,19 @@ async function createPaymentIntent(data: any) {
 
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ clientSecret: paymentIntent.client_secret }),
     };
   } catch (error: any) {
     return {
       statusCode: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ error: error.message }),
     };
   }
@@ -87,11 +102,19 @@ async function confirmPayment(data: any) {
 
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ paymentIntent }),
     };
   } catch (error: any) {
     return {
       statusCode: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ error: error.message }),
     };
   }
@@ -110,11 +133,19 @@ async function createCustomer(data: any) {
 
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ customer }),
     };
   } catch (error: any) {
     return {
       statusCode: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ error: error.message }),
     };
   }
@@ -122,6 +153,16 @@ async function createCustomer(data: any) {
 
 // Add a payment method to a customer
 async function addPaymentMethod(data: any) {
+
+  return {
+    statusCode: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+    },
+    body: JSON.stringify({ success: true }),
+  };
+
   const { customerId, paymentMethodId } = data;
 
   try {
@@ -130,13 +171,44 @@ async function addPaymentMethod(data: any) {
       customer: customerId,
     });
 
+    // Get payment method details
+    const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+
+    // Save payment method to DynamoDB
+    const AWS = require('aws-sdk');
+    const dynamodb = new AWS.DynamoDB.DocumentClient();
+    
+    await dynamodb.put({
+      TableName: process.env.PAYMENT_METHODS_TABLE,
+      Item: {
+        userId: customerId,
+        customerId,
+        paymentMethodId,
+        type: 'card',
+        last4: paymentMethod.card?.last4 || '',
+        brand: paymentMethod.card?.brand || 'unknown',
+        isDefault: true,
+        metadata: {},
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    }).promise();
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true }),
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+      },
+      body: JSON.stringify({ success: true, paymentMethod }),
     };
   } catch (error: any) {
     return {
       statusCode: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+      },
       body: JSON.stringify({ error: error.message }),
     };
   }
@@ -154,11 +226,19 @@ async function listPaymentMethods(data: any) {
 
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ paymentMethods: paymentMethods.data }),
     };
   } catch (error: any) {
     return {
       statusCode: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ error: error.message }),
     };
   }
@@ -175,13 +255,47 @@ async function setDefaultPaymentMethod(data: any) {
       },
     });
 
+    // Update default payment method in DynamoDB
+    const AWS = require('aws-sdk');
+    const dynamodb = new AWS.DynamoDB.DocumentClient();
+    
+    // First reset all payment methods to non-default
+    await dynamodb.update({
+      TableName: process.env.PAYMENT_METHODS_TABLE,
+      Key: { userId: customerId },
+      UpdateExpression: 'SET isDefault = :false, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':false': false,
+        ':now': new Date().toISOString()
+      }
+    }).promise();
+    
+    // Then set the specified method as default
+    await dynamodb.update({
+      TableName: process.env.PAYMENT_METHODS_TABLE,
+      Key: { userId: customerId, paymentMethodId },
+      UpdateExpression: 'SET isDefault = :true, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':true': true,
+        ':now': new Date().toISOString()
+      }
+    }).promise();
+
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+      },
       body: JSON.stringify({ success: true }),
     };
   } catch (error: any) {
     return {
       statusCode: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+      },
       body: JSON.stringify({ error: error.message }),
     };
   }
@@ -206,13 +320,54 @@ async function processDeposit(data: any) {
       off_session: true,
     });
 
+    // Record transaction in DynamoDB
+    const AWS = require('aws-sdk');
+    const dynamodb = new AWS.DynamoDB.DocumentClient();
+    
+    await dynamodb.put({
+      TableName: process.env.TRANSACTIONS_TABLE,
+      Item: {
+        transactionId: paymentIntent.id,
+        userId: customerId,
+        customerId,
+        amount,
+        currency,
+        paymentMethodId,
+        paymentType: 'card',
+        status: paymentIntent.status === 'succeeded' ? 'completed' : 'pending',
+        metadata: { ...metadata, type: 'wallet_deposit' },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    }).promise();
+    
+    // Update wallet balance
+    await dynamodb.update({
+      TableName: process.env.WALLETS_TABLE,
+      Key: { userId: customerId },
+      UpdateExpression: 'SET balance = if_not_exists(balance, :zero) + :amount, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':amount': amount,
+        ':zero': 0,
+        ':now': new Date().toISOString()
+      }
+    }).promise();
+
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+      },
       body: JSON.stringify({ paymentIntent }),
     };
   } catch (error: any) {
     return {
       statusCode: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+      },
       body: JSON.stringify({ error: error.message }),
     };
   }
@@ -220,14 +375,14 @@ async function processDeposit(data: any) {
 
 // Create a bank account for ACH payments
 async function createBankAccount(data: any) {
-  const { 
-    customerId, 
-    accountHolderName, 
-    accountHolderType, 
-    routingNumber, 
-    accountNumber, 
+  const {
+    customerId,
+    accountHolderName,
+    accountHolderType,
+    routingNumber,
+    accountNumber,
     accountType = 'checking',
-    metadata 
+    metadata
   } = data;
 
   try {
@@ -252,11 +407,19 @@ async function createBankAccount(data: any) {
 
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ bankAccount }),
     };
   } catch (error: any) {
     return {
       statusCode: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ error: error.message }),
     };
   }
@@ -276,11 +439,19 @@ async function verifyBankAccount(data: any) {
 
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ bankAccount }),
     };
   } catch (error: any) {
     return {
       statusCode: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ error: error.message }),
     };
   }
@@ -305,7 +476,7 @@ async function processACHPayment(data: any) {
       confirm: true,
       off_session: true,
     });
-    
+
     // Create transaction record
     const transaction = {
       id: paymentIntent.id,
@@ -324,17 +495,25 @@ async function processACHPayment(data: any) {
       },
       createdDate: new Date().toISOString()
     };
-    
+
     // Call saveTransaction function to store the transaction
     await saveTransaction(transaction);
 
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ paymentIntent }),
     };
   } catch (error: any) {
     return {
       statusCode: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ error: error.message }),
     };
   }
@@ -342,12 +521,12 @@ async function processACHPayment(data: any) {
 
 // Save a transaction record to the database
 async function saveTransaction(data: any) {
-  const { 
-    userId, 
+  const {
+    userId,
     customerId,
-    amount, 
+    amount,
     currency = 'usd',
-    paymentMethodId, 
+    paymentMethodId,
     bankAccountId,
     paymentType,
     status,
@@ -359,7 +538,7 @@ async function saveTransaction(data: any) {
     // Create DynamoDB client
     const AWS = require('aws-sdk');
     const dynamoDB = new AWS.DynamoDB.DocumentClient();
-    
+
     // Prepare transaction record for DynamoDB
     const transactionItem = {
       userId,
@@ -374,7 +553,7 @@ async function saveTransaction(data: any) {
       createdDate,
       updatedDate: createdDate
     };
-    
+
     // Save to DynamoDB
     await dynamoDB.put({
       TableName: process.env.TRANSACTIONS_TABLE_NAME || 'transactions',
@@ -383,12 +562,20 @@ async function saveTransaction(data: any) {
 
     return {
       statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ transaction: transactionItem }),
     };
   } catch (error: any) {
     console.error('Error saving transaction:', error);
     return {
       statusCode: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Restrict this to domains you trust
+        "Access-Control-Allow-Headers": "*", // Specify only the headers you need to allow
+      },
       body: JSON.stringify({ error: error.message }),
     };
   }

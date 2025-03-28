@@ -3,7 +3,7 @@ import { auth } from './auth/resource.js';
 import { data } from './data/resource.js';
 import { storage } from './storage/resource';
 import { payment } from './function/payment/resource';
-import { Stack } from 'aws-cdk-lib';
+import { Stack, Duration } from 'aws-cdk-lib';
 import {
   CorsHttpMethod,
   HttpApi,
@@ -51,10 +51,15 @@ const httpApi = new HttpApi(apiStack, 'PaymentHttpApi', {
     allowMethods: [
       CorsHttpMethod.GET,
       CorsHttpMethod.POST,
-      CorsHttpMethod.OPTIONS,
+      CorsHttpMethod.PUT,
+      CorsHttpMethod.DELETE,
     ],
-    allowOrigins: ['*'],
-    allowHeaders: ['*'],
+    // Restrict this to domains you trust
+    allowOrigins: ["*"],
+    // Specify only the headers you need to allow
+    allowHeaders: ["*"],
+    // Explicitly disable credentials for wildcard origin
+    allowCredentials: false,
   },
   createDefaultStage: true,
 });
@@ -67,12 +72,8 @@ httpApi.addRoutes({
   authorizer: iamAuthorizer,
 });
 
-// Add options method to the payment route for CORS
-httpApi.addRoutes({
-  path: '/payment',
-  methods: [HttpMethod.OPTIONS],
-  integration: paymentLambdaIntegration,
-});
+// OPTIONS route is handled automatically by API Gateway when corsPreflight is configured
+// No need to explicitly add an OPTIONS route as it's managed by the CORS configuration
 
 // Create a new IAM policy to allow Invoke access to the API
 const apiPolicy = new Policy(apiStack, 'PaymentApiPolicy', {
