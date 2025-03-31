@@ -1,17 +1,87 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 
-/*== STEP 1 ===============================================================
-The section below creates a Todo database table with a "content" field. Try
-adding a new "isDone" field as a boolean. The authorization rule below
-specifies that any user authenticated via an API key can "create", "read",
-"update", and "delete" any "Todo" records.
-=========================================================================*/
+/*
+This schema defines the data models for the wallet functionality with Stripe integration.
+It includes models for User, PaymentMethod, BankAccount, Transaction, and Wallet with proper
+relationships and authorization rules.
+*/
 const schema = a.schema({
-  Todo: a
+  User: a
     .model({
-      content: a.string(),
+      email: a.string().required(),
+      name: a.string(),
+      stripeCustomerId: a.string(),
+      wallet: a.hasOne('Wallet', 'userId'),
+      paymentMethods: a.hasMany('PaymentMethod', 'userId'),
+      BankAccounts: a.hasMany('BankAccount', 'userId'),
+      transactions: a.hasMany('Transaction', 'userId'),
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [
+      allow.owner(),
+      allow.authenticated().to(['read']),
+    ]),
+
+  Wallet: a
+    .model({
+      balance: a.float().required().default(0),
+      userId: a.id(),
+      user: a.belongsTo('User', 'userId'),
+      transactions: a.hasMany('Transaction', 'userId'),
+    })
+    .authorization((allow) => [
+      allow.owner(),
+      allow.authenticated().to(['read']),
+    ]),
+
+  PaymentMethod: a
+    .model({
+      type: a.enum(['card', 'bank_account']),
+      lastFour: a.string().required(),
+      isDefault: a.boolean().required().default(false),
+      stripeTokenId: a.string(),
+      expiryDate: a.string(),
+      cardType: a.string(),
+      userId: a.id(),
+      user: a.belongsTo('User', 'userId'),
+    })
+    .authorization((allow) => [
+      allow.owner(),
+      allow.authenticated().to(['read']),
+    ]),
+
+  BankAccount: a
+    .model({
+      accountHolderName: a.string().required(),
+      lastFour: a.string().required(),
+      routingNumber: a.string().required(),
+      bankName: a.string(),
+      isVerified: a.boolean().required().default(false),
+      stripeTokenId: a.string(),
+      userId: a.id(),
+      user: a.belongsTo('User', 'userId'),
+    })
+    .authorization((allow) => [
+      allow.owner(),
+      allow.authenticated().to(['read']),
+    ]),
+
+  Transaction: a
+    .model({
+      date: a.datetime().required(),
+      description: a.string().required(),
+      amount: a.float().required(),
+      status: a.string().required().default('pending'),
+      type: a.enum(['deposit', 'withdrawal', 'transfer', 'payment']),
+      paymentMethodId: a.string(),
+      stripePaymentId: a.string(),
+      userId: a.id(),
+      user: a.belongsTo('User', 'userId'),
+      wallet: a.belongsTo('Wallet', 'userId'),
+    })
+    .authorization((allow) => [
+      allow.owner(),
+      allow.authenticated().to(['read']),
+    ]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
@@ -19,38 +89,9 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: "apiKey",
+    defaultAuthorizationMode: "userPool",
     apiKeyAuthorizationMode: {
       expiresInDays: 30,
     },
   },
 });
-
-/*== STEP 2 ===============================================================
-Go to your frontend source code. From your client-side code, generate a
-Data client to make CRUDL requests to your table. (THIS SNIPPET WILL ONLY
-WORK IN THE FRONTEND CODE FILE.)
-
-Using JavaScript or Next.js React Server Components, Middleware, Server 
-Actions or Pages Router? Review how to generate Data clients for those use
-cases: https://docs.amplify.aws/gen2/build-a-backend/data/connect-to-API/
-=========================================================================*/
-
-/*
-"use client"
-import { generateClient } from "aws-amplify/data";
-import type { Schema } from "@/amplify/data/resource";
-
-const client = generateClient<Schema>() // use this Data client for CRUDL requests
-*/
-
-/*== STEP 3 ===============================================================
-Fetch records from the database and use them in your frontend component.
-(THIS SNIPPET WILL ONLY WORK IN THE FRONTEND CODE FILE.)
-=========================================================================*/
-
-/* For example, in a React component, you can use this snippet in your
-  function's RETURN statement */
-// const { data: todos } = await client.models.Todo.list()
-
-// return <ul>{todos.map(todo => <li key={todo.id}>{todo.content}</li>)}</ul>
