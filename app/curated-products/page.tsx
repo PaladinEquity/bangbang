@@ -1,64 +1,98 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { getAllWallpapers } from '@/services/wallpaperService';
 
 export default function CuratedProducts() {
   const router = useRouter();
-  // Sample product data - in a real application, this would come from an API or database
-  const products = [
-    { id: 1, name: 'Tropical Paradise', price: 49.99, category: 'Nature' },
-    { id: 2, name: 'Urban Geometry', price: 59.99, category: 'Abstract' },
-    { id: 3, name: 'Vintage Florals', price: 45.99, category: 'Floral' },
-    { id: 4, name: 'Minimalist Lines', price: 39.99, category: 'Minimalist' },
-    { id: 5, name: 'Bohemian Dreams', price: 54.99, category: 'Bohemian' },
-    { id: 6, name: 'Art Deco Elegance', price: 64.99, category: 'Art Deco' },
-    { id: 7, name: 'Watercolor Wonders', price: 49.99, category: 'Artistic' },
-    { id: 8, name: 'Geometric Patterns', price: 44.99, category: 'Geometric' },
-  ];
+  const [wallpapers, setWallpapers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  
+  useEffect(() => {
+    const fetchWallpapers = async () => {
+      try {
+        const data = await getAllWallpapers() as any;
+        setWallpapers(data);
+      } catch (error) {
+        console.error('Error fetching wallpapers:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchWallpapers();
+  }, []);
+  
+  // Extract unique categories from wallpapers
+  // const categories = ['All', ...new Set(wallpapers.map(w => w.primaryImagery).filter(Boolean))];
+  
+  // Filter wallpapers by selected category
+  const filteredWallpapers = selectedCategory === 'All' 
+    ? wallpapers 
+    : wallpapers.filter((w : any) => w.primaryImagery === selectedCategory);
 
   return (
     <div className="max-w-6xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-2 text-center">Curated Wallpaper Collection</h1>
       <p className="text-center text-gray-600 mb-8">Professionally designed wallpapers ready to ship to your door</p>
       
-      {/* Filters */}
-      <div className="mb-8">
-        <div className="flex flex-wrap gap-2 justify-center">
-          <button className="px-4 py-2 bg-gray-800 text-white rounded-full text-sm">All Designs</button>
-          <button className="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm">Nature</button>
-          <button className="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm">Abstract</button>
-          <button className="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm">Floral</button>
-          <button className="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm">Geometric</button>
-          <button className="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm">Minimalist</button>
+
+      
+      {/* Loading State */}
+      {loading && (
+        <div className="text-center py-10">
+          <p>Loading wallpapers...</p>
         </div>
-      </div>
+      )}
+      
+      {/* Empty State */}
+      {!loading && filteredWallpapers.length === 0 && (
+        <div className="text-center py-10">
+          <p>No wallpapers found. Try a different category or check back later.</p>
+        </div>
+      )}
       
       {/* Products Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        {products.map((product) => (
+        {filteredWallpapers.map((wallpaper: any) => (
           <div 
-            key={product.id} 
+            key={wallpaper.id} 
             className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => router.push(`/product/${product.id}`)}
+            onClick={() => router.push(`/product/${wallpaper.id}`)}
           >
             {/* Product Image */}
-            <div className="aspect-square bg-gray-100 relative">
-              <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded text-xs font-medium">{product.category}</div>
+            <div className="aspect-square bg-gray-100 relative overflow-hidden">
+              {wallpaper.imageData && (
+                <img 
+                  src={wallpaper.imageData} 
+                  alt={wallpaper.description || 'Wallpaper'}
+                  className="w-full h-full object-cover"
+                />
+              )}
+              <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded text-xs font-medium">{wallpaper.primaryImagery || 'Custom'}</div>
+              {wallpaper.userId && (
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-2 text-xs">
+                  <p className="font-medium">Created by: {wallpaper.userId}</p>
+                  <p className="truncate">{wallpaper.description}</p>
+                </div>
+              )}
             </div>
             
             {/* Product Info */}
             <div className="p-4">
-              <h3 className="font-bold text-lg mb-1">{product.name}</h3>
-              <p className="text-gray-500 text-sm mb-2">Pre-designed wallpaper</p>
+              <h3 className="font-bold text-lg mb-1">{wallpaper.description || 'Custom Wallpaper'}</h3>
+              <p className="text-gray-500 text-sm mb-2">{wallpaper.size || 'Standard size'}</p>
               <div className="flex justify-between items-center">
-                <span className="font-bold">${product.price}</span>
+                <span className="font-bold">${wallpaper.price.toFixed(2)}</span>
                 <button 
                   className="bg-gray-800 text-white px-3 py-1 rounded text-sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    alert(`Added ${product.name} to cart!`);
+                    // Here you would add the wallpaper to cart
+                    alert(`Added ${wallpaper.description || 'Custom Wallpaper'} to cart!`);
                   }}
                 >
                   Add to Cart

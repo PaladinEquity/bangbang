@@ -8,6 +8,7 @@ import { PaymentMethodSelector } from '@/components/payment/PaymentMethodSelecto
 import { getCartItems, calculateCartTotal, clearCart } from '@/services/wallpaperService';
 import { getPaymentMethods, processPayment } from '@/services/paymentService';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '@/components/auth/AuthContext';
 
 type CartItem = {
   id: string;
@@ -37,8 +38,9 @@ type PaymentMethod = {
   bankName?: string;
 };
 
-function CheckoutContent() {
+async function CheckoutContent() {
   const router = useRouter();
+  const { user } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
@@ -58,11 +60,13 @@ function CheckoutContent() {
 
   useEffect(() => {
     // Load cart items
-    const items = getCartItems();
-    setCartItems(items);
-    
-    // Load payment methods
-    loadPaymentMethods();
+    (async () => {
+      const items = (await getCartItems(user?.userId || '')) as any;
+      setCartItems(items);
+      
+      // Load payment methods
+      loadPaymentMethods();
+    })();
   }, []);
 
   const loadPaymentMethods = async () => {
@@ -158,12 +162,12 @@ function CheckoutContent() {
     
     try {
       // Process payment
-      const total = calculateCartTotal();
+      const total = await calculateCartTotal(user?.userId || '');
       const result = await processPayment(total, selectedPaymentMethod);
       
       if (result.success) {
         // Clear cart and redirect to success page
-        clearCart();
+        clearCart(user?.userId || '');
         toast.success('Order placed successfully!');
         router.push(`/order-confirmation?orderId=${result.paymentIntentId}`);
       } else {
@@ -177,7 +181,7 @@ function CheckoutContent() {
     }
   };
 
-  const subtotal = calculateCartTotal();
+  const subtotal = await calculateCartTotal(user?.userId || '');
   const shipping = 15.00;
   const tax = subtotal * 0.07; // 7% tax rate
   const total = subtotal + shipping + tax;

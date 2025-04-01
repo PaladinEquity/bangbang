@@ -455,7 +455,7 @@ export default function Home() {
             <div className="mt-8 mb-4">
               <button 
                 className="w-full bg-gray-800 text-white py-3 rounded-lg font-medium hover:bg-gray-700 transition-colors"
-                onClick={() => router.push(`/product/custom?image=${encodeURIComponent(selectedImage)}&size=${selectedSize}`)}
+                onClick={() => router.push(`/product/custom?image=${encodeURIComponent(selectedImage)}&size=${selectedSize}&primaryImagery=${encodeURIComponent(primaryImagery)}`)}
               >
                 PROCEED TO ORDER
               </button>

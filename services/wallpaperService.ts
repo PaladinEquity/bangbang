@@ -1,78 +1,109 @@
 /**
- * Service for handling wallpaper data and cart operations
+ * Service for handling wallpaper data and cart operations using Amplify models
  */
+import { generateClient } from 'aws-amplify/data';
+import type { Schema } from '@/amplify/data/resource';
 
 type WallpaperData = {
-  id?: string;
+  id?: string | null;
   imageData: string; // Base64 encoded image data
-  description: string;
-  primaryImagery: string;
-  size: string;
+  description: string | null;
+  primaryImagery: string | null;
+  size: string | null;
   price: number;
+  userId?: string | null; // Owner of the wallpaper
 };
 
 type CartItem = {
-  id: string;
+  id: string | null;
   name: string;
-  description: string;
+  description: string | null;
   price: number;
   quantity: number;
-  imageUrl?: string;
-  imageData?: string; // For custom wallpapers
+  imageUrl?: string | null;
+  imageData?: string | null; // For custom wallpapers
   options: {
     rollSize: string;
-    patternSize?: string;
+    patternSize?: string | null;
   };
   isCustom: boolean;
   wallpaperId: string;
 };
-
-// Local storage keys
-const CART_STORAGE_KEY = 'bangbang_cart';
-const WALLPAPER_STORAGE_KEY = 'bangbang_wallpapers';
 
 // Generate a unique ID
 const generateId = (): string => {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 };
 
+// Initialize the Amplify data client
+const client = generateClient<Schema>();
+
 // Save wallpaper data and return the wallpaper ID
 export async function saveWallpaperData(wallpaperData: WallpaperData): Promise<string> {
   try {
-    // In a production environment, this would be an API call to save to a database
-    // For now, we'll use local storage as a simple solution
-    const wallpaperId = generateId();
-    const wallpaper = {
-      ...wallpaperData,
-      id: wallpaperId,
-      createdAt: new Date().toISOString()
-    };
+    // Save to Amplify DataStore
+    const result = await client.models.Wallpaper.create({
+      imageData: wallpaperData.imageData,
+      description: wallpaperData.description,
+      primaryImagery: wallpaperData.primaryImagery,
+      size: wallpaperData.size,
+      price: wallpaperData.price,
+      createdAt: new Date().toISOString(),
+      userId: wallpaperData.userId
+    });
     
-    // Get existing wallpapers from storage
-    const existingWallpapersJson = localStorage.getItem(WALLPAPER_STORAGE_KEY);
-    const existingWallpapers = existingWallpapersJson ? JSON.parse(existingWallpapersJson) : [];
-    
-    // Add new wallpaper
-    existingWallpapers.push(wallpaper);
-    
-    // Save back to storage
-    localStorage.setItem(WALLPAPER_STORAGE_KEY, JSON.stringify(existingWallpapers));
-    
-    return wallpaperId;
+    console.log('Wallpaper saved to Amplify successfully');
+    return result.data?.id || '';
   } catch (error) {
     console.error('Error saving wallpaper data:', error);
     throw error;
   }
 }
 
-// Get wallpaper by ID
-export function getWallpaperById(wallpaperId: string): WallpaperData | null {
+// Get all wallpapers
+export async function getAllWallpapers(): Promise<(WallpaperData & { userId?: string })[]> {
   try {
-    const wallpapersJson = localStorage.getItem(WALLPAPER_STORAGE_KEY);
-    if (!wallpapersJson) return null;
+    const response = await client.models.Wallpaper.list({});
     
-    const wallpapers = JSON.parse(wallpapersJson);
-    return wallpapers.find((w: WallpaperData) => w.id === wallpaperId) || null;
+    if (response && response.data) {
+      return response.data.map(item => ({
+        id: item.id,
+        imageData: item.imageData || '',
+        description: item.description || '',
+        primaryImagery: item.primaryImagery || '',
+        size: item.size || '',
+        price: item.price || 0,
+        userId: item.userId || ''
+      }));
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error getting wallpapers:', error);
+    return [];
+  }
+}
+
+// Get wallpaper by ID
+export async function getWallpaperById(wallpaperId: string): Promise<WallpaperData | null> {
+  try {
+    const response = await client.models.Wallpaper.get({
+      id: wallpaperId
+    });
+    
+    if (response && response.data) {
+      return {
+        id: response.data.id,
+        imageData: response.data.imageData || '',
+        description: response.data.description || '',
+        primaryImagery: response.data.primaryImagery || '',
+        size: response.data.size || '',
+        price: response.data.price || 0,
+        userId: response.data.userId || ''
+      };
+    }
+    
+    return null;
   } catch (error) {
     console.error('Error getting wallpaper:', error);
     return null;
@@ -80,31 +111,44 @@ export function getWallpaperById(wallpaperId: string): WallpaperData | null {
 }
 
 // Add item to cart
-export function addToCart(item: CartItem): void {
+export async function addToCart(item: CartItem, userId: string): Promise<void> {
   try {
-    // Get existing cart
-    const cartJson = localStorage.getItem(CART_STORAGE_KEY);
-    const cart = cartJson ? JSON.parse(cartJson) : [];
+    // Check if item already exists in cart with same wallpaperId and rollSize
+    const existingItems = await client.models.CartItem.list({
+      filter: {
+        and: [
+          { wallpaperId: { eq: item.wallpaperId } },
+          { rollSize: { eq: item.options.rollSize } },
+          { userId: { eq: userId } }
+        ]
+      }
+    });
     
-    // Check if item already exists in cart
-    const existingItemIndex = cart.findIndex((cartItem: CartItem) => 
-      cartItem.wallpaperId === item.wallpaperId && 
-      cartItem.options.rollSize === item.options.rollSize
-    );
-    
-    if (existingItemIndex >= 0) {
+    if (existingItems && existingItems.data && existingItems.data.length > 0) {
       // Update quantity if item exists
-      cart[existingItemIndex].quantity += item.quantity;
+      const existingItem = existingItems.data[0];
+      await client.models.CartItem.update({
+        id: existingItem.id,
+        quantity: existingItem.quantity + item.quantity
+      });
     } else {
       // Add new item
-      cart.push({
-        ...item,
-        id: generateId() // Generate a unique cart item ID
+      const cartItemId = generateId();
+      await client.models.CartItem.create({
+        id: cartItemId,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        quantity: item.quantity,
+        imageUrl: item.imageUrl,
+        imageData: item.imageData,
+        rollSize: item.options.rollSize,
+        patternSize: item.options.patternSize,
+        isCustom: item.isCustom,
+        wallpaperId: item.wallpaperId,
+        userId: userId
       });
     }
-    
-    // Save cart
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   } catch (error) {
     console.error('Error adding to cart:', error);
     throw error;
@@ -112,10 +156,31 @@ export function addToCart(item: CartItem): void {
 }
 
 // Get cart items
-export function getCartItems(): CartItem[] {
+export async function getCartItems(userId: string): Promise<CartItem[]> {
   try {
-    const cartJson = localStorage.getItem(CART_STORAGE_KEY);
-    return cartJson ? JSON.parse(cartJson) : [];
+    const response = await client.models.CartItem.list({
+      filter: { userId: { eq: userId } }
+    });
+    
+    if (response && response.data) {
+      return response.data.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        quantity: item.quantity,
+        imageUrl: item.imageUrl,
+        imageData: item.imageData,
+        options: {
+          rollSize: item.rollSize,
+          patternSize: item.patternSize
+        },
+        isCustom: item.isCustom,
+        wallpaperId: item.wallpaperId
+      }));
+    }
+    
+    return [];
   } catch (error) {
     console.error('Error getting cart items:', error);
     return [];
@@ -123,20 +188,14 @@ export function getCartItems(): CartItem[] {
 }
 
 // Update cart item quantity
-export function updateCartItemQuantity(itemId: string, quantity: number): void {
+export async function updateCartItemQuantity(itemId: string, quantity: number): Promise<void> {
   try {
     if (quantity < 1) return;
     
-    const cartJson = localStorage.getItem(CART_STORAGE_KEY);
-    if (!cartJson) return;
-    
-    const cart = JSON.parse(cartJson);
-    const itemIndex = cart.findIndex((item: CartItem) => item.id === itemId);
-    
-    if (itemIndex >= 0) {
-      cart[itemIndex].quantity = quantity;
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-    }
+    await client.models.CartItem.update({
+      id: itemId,
+      quantity: quantity
+    });
   } catch (error) {
     console.error('Error updating cart item:', error);
     throw error;
@@ -144,15 +203,12 @@ export function updateCartItemQuantity(itemId: string, quantity: number): void {
 }
 
 // Remove item from cart
-export function removeCartItem(itemId: string): void {
+export async function removeCartItem(itemId: string): Promise<void> {
   try {
-    const cartJson = localStorage.getItem(CART_STORAGE_KEY);
-    if (!cartJson) return;
-    
-    const cart = JSON.parse(cartJson);
-    const updatedCart = cart.filter((item: CartItem) => item.id !== itemId);
-    
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updatedCart));
+    // Delete the cart item from Amplify DataStore
+    await client.models.CartItem.delete({
+      id: itemId
+    });
   } catch (error) {
     console.error('Error removing cart item:', error);
     throw error;
@@ -160,9 +216,21 @@ export function removeCartItem(itemId: string): void {
 }
 
 // Clear cart
-export function clearCart(): void {
+export async function clearCart(userId: string): Promise<void> {
   try {
-    localStorage.removeItem(CART_STORAGE_KEY);
+    // Get all cart items for the user
+    const response = await client.models.CartItem.list({
+      filter: { userId: { eq: userId } }
+    });
+    
+    // Delete each cart item
+    if (response && response.data) {
+      for (const item of response.data) {
+        await client.models.CartItem.delete({
+          id: item.id
+        });
+      }
+    }
   } catch (error) {
     console.error('Error clearing cart:', error);
     throw error;
@@ -170,12 +238,176 @@ export function clearCart(): void {
 }
 
 // Calculate cart total
-export function calculateCartTotal(): number {
+export async function calculateCartTotal(userId: string): Promise<number> {
   try {
-    const items = getCartItems();
+    const items = await getCartItems(userId);
     return items.reduce((total, item) => total + (item.price * item.quantity), 0);
   } catch (error) {
     console.error('Error calculating cart total:', error);
     return 0;
+  }
+}
+
+// Order type definition
+type OrderData = {
+  id?: string | null;
+  orderNumber: string | null;
+  totalAmount: number | null;
+  status: string | null;
+  paymentStatus: string | null;
+  paymentMethod?: string | null;
+  stripePaymentId?: string | null;
+  shippingAddress?: string | null;
+  billingAddress?: string | null;
+  orderDate: string | null;
+  items: string | null; // JSON string of cart items
+  userId?: string | null;
+};
+
+// No longer using localStorage for orders
+
+// Generate order number
+const generateOrderNumber = (): string => {
+  const timestamp = new Date().getTime();
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return `ORD-${timestamp}-${random}`;
+};
+
+// Create cart order
+export async function createCartOrder(userId: string, shippingAddress: string, billingAddress: string, paymentMethod?: string, stripePaymentId?: string): Promise<string> {
+  try {
+    // Get cart items
+    const cartItems = await getCartItems(userId);
+    if (cartItems.length === 0) {
+      throw new Error('Cart is empty');
+    }
+    
+    // Calculate total
+    const totalAmount = await calculateCartTotal(userId);
+    
+    // Generate order number
+    const orderNumber = generateOrderNumber();
+    const orderId = generateId();
+    
+    // Save to Amplify DataStore
+    await client.models.CartOrder.create({
+      id: orderId,
+      orderNumber,
+      totalAmount,
+      status: 'processing',
+      paymentStatus: stripePaymentId ? 'paid' : 'unpaid',
+      paymentMethod,
+      stripePaymentId,
+      shippingAddress,
+      billingAddress,
+      orderDate: new Date().toISOString(),
+      items: JSON.stringify(cartItems),
+      userId
+    });
+    console.log('Order saved to Amplify successfully');
+    
+    // Clear cart after successful order creation
+    await clearCart(userId);
+    
+    return orderId;
+  } catch (error) {
+    console.error('Error creating order:', error);
+    throw error;
+  }
+}
+
+// Get orders for a user
+export async function getUserOrders(userId: string): Promise<OrderData[]> {
+  try {
+    const response = await client.models.CartOrder.list({
+      filter: {
+        userId: { eq: userId }
+      }
+    });
+    
+    if (response && response.data) {
+      return response.data.map(order => ({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
+        stripePaymentId: order.stripePaymentId,
+        shippingAddress: order.shippingAddress,
+        billingAddress: order.billingAddress,
+        orderDate: order.orderDate,
+        items: order.items,
+        userId: order.userId
+      }));
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error getting user orders:', error);
+    return [];
+  }
+}
+
+// Get order by ID
+export async function getOrderById(orderId: string): Promise<OrderData | null> {
+  try {
+    const response = await client.models.CartOrder.get({
+      id: orderId
+    });
+    
+    if (response && response.data) {
+      return {
+        id: response.data.id,
+        orderNumber: response.data.orderNumber,
+        totalAmount: response.data.totalAmount,
+        status: response.data.status,
+        paymentStatus: response.data.paymentStatus,
+        paymentMethod: response.data.paymentMethod,
+        stripePaymentId: response.data.stripePaymentId,
+        shippingAddress: response.data.shippingAddress,
+        billingAddress: response.data.billingAddress,
+        orderDate: response.data.orderDate,
+        items: response.data.items,
+        userId: response.data.userId
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting order:', error);
+    return null;
+  }
+}
+
+// Update order status
+export async function updateOrderStatus(orderId: string, status: 'pending' | 'processing' | 'completed' | 'cancelled', paymentStatus?: 'unpaid' | 'paid' | 'refunded'): Promise<boolean> {
+  try {
+    // First get the current order
+    const currentOrder = await client.models.CartOrder.get({
+      id: orderId
+    });
+    
+    if (!currentOrder || !currentOrder.data) {
+      throw new Error('Order not found');
+    }
+    
+    // Update the order
+    const updateData: any = { status };
+    if (paymentStatus) {
+      updateData.paymentStatus = paymentStatus;
+    }
+    
+    await client.models.CartOrder.update({
+      id: orderId,
+      ...updateData
+    });
+    
+    console.log('Order status updated in Amplify successfully');
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    return false;
   }
 }

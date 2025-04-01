@@ -1,11 +1,66 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 
 /*
-This schema defines the data models for the wallet functionality with Stripe integration.
-It includes models for User, PaymentMethod, BankAccount, Transaction, and Wallet with proper
+This schema defines the data models for the wallet functionality with Stripe integration,
+as well as cart and order management.
+It includes models for User, PaymentMethod, BankAccount, Transaction, Wallet, and CartOrder with proper
 relationships and authorization rules.
 */
 const schema = a.schema({
+  Wallpaper: a
+    .model({
+      imageData: a.string().required(), // Base64 encoded image data or URL
+      description: a.string(),
+      primaryImagery: a.string(),
+      size: a.string(),
+      price: a.float().required(),
+      createdAt: a.datetime(),
+      userId: a.string(), // To associate with a user if needed
+    })
+    .authorization((allow) => [
+      allow.owner(),
+      allow.authenticated().to(['read']),
+    ]),
+    
+  CartItem: a
+    .model({
+      name: a.string().required(),
+      description: a.string(),
+      price: a.float().required(),
+      quantity: a.integer().required().default(1),
+      imageUrl: a.string(),
+      imageData: a.string(),
+      rollSize: a.string().required(),
+      patternSize: a.string(),
+      isCustom: a.boolean().required().default(false),
+      wallpaperId: a.string().required(),
+      userId: a.string().required(),
+    })
+    .authorization((allow) => [
+      allow.owner(),
+      allow.authenticated().to(['read']),
+    ]),
+    
+  CartOrder: a
+    .model({
+      orderNumber: a.string().required(),
+      totalAmount: a.float().required(),
+      status: a.string().required().default('pending'),
+      paymentStatus: a.string().default('unpaid'),
+      paymentMethod: a.string(),
+      stripePaymentId: a.string(),
+      shippingAddress: a.string(),
+      billingAddress: a.string(),
+      orderDate: a.datetime().required(),
+      items: a.string().required(), // JSON string containing order items
+      userId: a.id(),
+      user: a.belongsTo('User', 'userId'),
+    })
+    .authorization((allow) => [
+      allow.owner(),
+      allow.authenticated().to(['read']),
+    ]),
+    
   User: a
     .model({
       email: a.string().required(),
@@ -15,6 +70,7 @@ const schema = a.schema({
       paymentMethods: a.hasMany('PaymentMethod', 'userId'),
       BankAccounts: a.hasMany('BankAccount', 'userId'),
       transactions: a.hasMany('Transaction', 'userId'),
+      orders: a.hasMany('CartOrder', 'userId'),
     })
     .authorization((allow) => [
       allow.owner(),

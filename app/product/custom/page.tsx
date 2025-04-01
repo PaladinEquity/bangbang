@@ -4,12 +4,47 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import WallpaperSimulation from '@/components/WallpaperSimulation';
+import { saveWallpaperData, addToCart } from '@/services/wallpaperService';
+import { useAuth } from '@/components/auth/AuthContext';
+import { toast } from 'react-hot-toast';
+
+// Helper function to calculate price based on selected size
+const calculatePrice = (size: string): number => {
+  switch (size) {
+    case '396l-21w':
+      return 360;
+    case '396l-42w':
+      return 700;
+    case '600l-42w':
+      return 1000;
+    case '1200l-42w':
+      return 1360;
+    default:
+      return 700; // Default price
+  }
+};
+
+// Helper function to get human-readable size label
+const getSizeLabel = (size: string): string => {
+  switch (size) {
+    case '396l-21w':
+      return "396' l x 21' w";
+    case '396l-42w':
+      return "396' l x 42' w";
+    case '600l-42w':
+      return "600' l x 42' w";
+    case '1200l-42w':
+      return "1200' l x 42' w";
+    default:
+      return "396' l x 42' w"; // Default size
+  }
+};
 
 function CustomProductContent() {
   const searchParams = useSearchParams();
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState('396l-21w');
-  
+  const { user } = useAuth();
   useEffect(() => {
     const size = searchParams.get('size');
     if (size) {
@@ -24,8 +59,48 @@ function CustomProductContent() {
     }
   };
 
-  const handleAddToCart = () => {
-    alert(`Added ${quantity} custom wallpaper to cart!`);
+  const handleAddToCart = async () => {
+    if (!imageUrl) {
+      toast.error('Please select an image first!');
+      return;
+    }
+
+    try {
+      // Create wallpaper data object
+      const wallpaperData = {
+        imageData: imageUrl, // Store the image data (URL in this case)
+        description: primaryImagery || 'Custom Wallpaper',
+        primaryImagery: primaryImagery || 'Custom Design',
+        size: selectedSize,
+        price: calculatePrice(selectedSize)
+      };
+
+      // Save wallpaper data and get wallpaper ID
+      const wallpaperId = await saveWallpaperData(wallpaperData);
+
+      // Create cart item
+      const cartItem = {
+        id: '', // This will be generated in the addToCart function
+        name: primaryImagery || 'Custom Wallpaper',
+        description: 'Custom-generated wallpaper design',
+        price: calculatePrice(selectedSize),
+        quantity: quantity,
+        imageData: imageUrl, // Store the actual image data
+        options: {
+          rollSize: getSizeLabel(selectedSize),
+        },
+        isCustom: true,
+        wallpaperId: wallpaperId
+      };
+
+      // Add to cart
+      addToCart(cartItem, user?.userId || '');
+
+      toast.success('Added to cart successfully!');
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast.error('Failed to add to cart. Please try again.');
+    }
   };
 
   const imageUrl = searchParams.get('image');

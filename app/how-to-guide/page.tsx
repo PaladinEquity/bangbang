@@ -1,85 +1,164 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function HowToGuide() {
+  // Example wallpaper images for Primary Imagery section
+  const primaryImageryExamples = [
+    { id: 1, src: '/about_1.avif', alt: 'Eiffel Tower pattern wallpaper', style: 'Black and white Eiffel Tower pattern' },
+    { id: 2, src: '/about_2.avif', alt: 'Damask pattern wallpaper', style: 'Classic damask pattern' },
+    { id: 3, src: '/about_3.avif', alt: 'Mona Lisa pattern wallpaper', style: 'Artistic Mona Lisa pattern' },
+    { id: 4, src: '/about_4.avif', alt: 'Starry Night pattern wallpaper', style: 'Van Gogh inspired pattern' },
+  ];
+
+  // Example wallpaper images for Design Style section
+  const designStyleExamples = [
+    { id: 1, src: '/about_1.avif', alt: 'Geometric pattern wallpaper', style: 'Geometric' },
+    { id: 2, src: '/about_2.avif', alt: 'Damask pattern wallpaper', style: 'Damask' },
+    { id: 3, src: '/about_3.avif', alt: 'Abstract pattern wallpaper', style: 'Abstract' },
+    { id: 4, src: '/about_4.avif', alt: 'Floral pattern wallpaper', style: 'Floral' },
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6 text-center">How To Create Your Custom Wallpaper</h1>
-      
-      <div className="bg-gray-50 p-6 rounded-lg mb-8">
-        <h2 className="text-xl font-semibold mb-4">Quick Start Guide</h2>
-        <ol className="list-decimal pl-5 space-y-3">
-          <li>Upload your primary image(s) in the <Link href="/" className="text-blue-600 hover:underline">Image Creation</Link> tool</li>
-          <li>Select your design style and color preferences</li>
-          <li>Add details about pattern structure, mood, and specific qualities</li>
-          <li>Click the Create button to generate your custom wallpaper</li>
-          <li>Review the preview and make adjustments if needed</li>
-          <li>Proceed to checkout when you're satisfied with your design</li>
-        </ol>
+    <div className="max-w-6xl mx-auto p-6">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold mb-2">Primary Imagery & Design Style</h1>
+        <h2 className="text-xl font-medium mb-4">Guide with Examples</h2>
       </div>
-      
-      <div className="space-y-8">
-        <section>
-          <h2 className="text-xl font-semibold mb-3">1. Uploading Your Images</h2>
-          <p className="mb-3">The Primary Image input is where you'll upload the main image(s) that will inspire your wallpaper design. You can:</p>
-          <ul className="list-disc pl-5 mb-3">
-            <li>Drag and drop images directly into the upload area</li>
-            <li>Click to browse and select files from your device</li>
-            <li>Upload multiple images for our AI to work with</li>
-          </ul>
-          <p className="text-sm text-gray-600">High resolution images are recommended for best results, but our AI can enhance lower quality images if needed.</p>
-        </section>
+
+      {/* Step 1: Primary Imagery Section */}
+      <div className="mb-12">
+        <h3 className="text-xl font-semibold mb-4">Step 1: Input Primary Imagery</h3>
         
-        <section>
-          <h2 className="text-xl font-semibold mb-3">2. Choosing Your Design Style</h2>
-          <p className="mb-3">The Design Style field controls the overall theme of your wallpaper. You can specify styles such as:</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
-            <div className="bg-white p-2 text-center rounded border">Art Deco</div>
-            <div className="bg-white p-2 text-center rounded border">Minimalist</div>
-            <div className="bg-white p-2 text-center rounded border">Victorian</div>
-            <div className="bg-white p-2 text-center rounded border">Bauhaus</div>
-            <div className="bg-white p-2 text-center rounded border">Futuristic</div>
-            <div className="bg-white p-2 text-center rounded border">Bohemian</div>
+        <ul className="list-disc pl-6 mb-4">
+          <li className="mb-2">Tips on what you'd like to see in Primary Imagery section.</li>
+          <li className="mb-2">Examples: "Eiffel Tower", "Mona Lisa", or "City Skyline".</li>
+        </ul>
+        
+        <div className="mb-4">
+          <h4 className="font-medium mb-2">Examples:</h4>
+          <p className="mb-4">Swipe over images below to see examples of primary imagery inputs. Examples include design style outputs which are explained below.</p>
+        </div>
+        
+        {/* Primary Imagery Horizontal Slider */}
+        <div className="relative overflow-x-auto pb-4">
+          <div className="flex space-x-4 w-max">
+            {primaryImageryExamples.map((example) => (
+              <div key={example.id} className="flex-none w-64 md:w-72">
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="relative h-64 w-full">
+                    <Image 
+                      src={example.src} 
+                      alt={example.alt}
+                      fill
+                      style={{ objectFit: 'cover' }}
+                      className="hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                  <div className="p-3 bg-white">
+                    <p className="text-sm font-medium">{example.style}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-          <p className="text-sm text-gray-600">You can also specify color preferences in this section.</p>
-        </section>
-        
-        <section>
-          <h2 className="text-xl font-semibold mb-3">3. Enhanced Image Creation</h2>
-          <p className="mb-3">This section allows you to add specific details and effects to your wallpaper design:</p>
-          <ul className="list-disc pl-5">
-            <li><strong>Pattern Structure:</strong> Symmetrical, Asymmetrical, Repeating, Random, etc.</li>
-            <li><strong>Mood-Ambience:</strong> Bright, Vibrant, Moody, Calm, Energetic, etc.</li>
-            <li><strong>Specific Qualities:</strong> Textured, Handpainted, Sleek, Glossy, Matte, etc.</li>
-            <li><strong>Basic Adjectives:</strong> Elegant, Whimsical, Playful, Sophisticated, etc.</li>
-          </ul>
-        </section>
-        
-        <section>
-          <h2 className="text-xl font-semibold mb-3">4. Creating Your Wallpaper</h2>
-          <p className="mb-3">Once you've filled in your preferences, click the Create button to generate your custom wallpaper design. Our AI will process your inputs and create a unique wallpaper based on your specifications.</p>
-          <p className="mb-3">The preview will appear in the Preview Section. If you're not satisfied with the result, you can adjust your inputs and create a new design.</p>
-        </section>
-        
-        <section>
-          <h2 className="text-xl font-semibold mb-3">5. Ordering Your Custom Wallpaper</h2>
-          <p className="mb-3">When you're happy with your design, you can proceed to order your custom wallpaper:</p>
-          <ol className="list-decimal pl-5">
-            <li>Select your preferred size and material</li>
-            <li>Add the design to your cart</li>
-            <li>Proceed to checkout</li>
-            <li>Enter your shipping and payment information</li>
-            <li>Confirm your order</li>
-          </ol>
-          <p className="mt-3 text-sm text-gray-600">Your custom wallpaper will be professionally printed and shipped directly to your door.</p>
-        </section>
+        </div>
       </div>
-      
-      <div className="mt-10 bg-gray-50 p-6 rounded-lg">
-        <h2 className="text-xl font-semibold mb-3">Need Help?</h2>
-        <p className="mb-3">If you have any questions or need assistance with creating your custom wallpaper, our team is here to help.</p>
-        <p className="font-medium">Contact us at: <span className="text-blue-600">hello@company.com</span></p>
-        <p>Business hours: Monday-Friday, 8am-6pm PST</p>
+
+      {/* Step 2: Design Style Section */}
+      <div className="mb-12">
+        <h3 className="text-xl font-semibold mb-4">Step 2: Input Design Style</h3>
+        
+        <ul className="list-disc pl-6 mb-4">
+          <li className="mb-2">Tips on what you'd like to see in Design Style text box.</li>
+        </ul>
+        
+        <div className="mb-4">
+          <h4 className="font-medium mb-2">Examples:</h4>
+          <ul className="list-disc pl-6 mb-4">
+            <li className="mb-1">Traditional Designs: "Geometric", "Damask", "Stripes", "Minimalist", "Floral", and so on...</li>
+            <li className="mb-1">Cultural Designs: "African", "Scandinavian", "Hawaiian", and so on...</li>
+          </ul>
+          <p className="mb-4">Use in-depth descriptions to see examples of design style inputs. Features of specific design styles are displayed by clicking on images below.</p>
+        </div>
+        
+        {/* Design Style Horizontal Slider */}
+        <div className="relative overflow-x-auto pb-4">
+          <div className="flex space-x-4 w-max">
+            {designStyleExamples.map((example) => (
+              <div key={example.id} className="flex-none w-64 md:w-72">
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="relative h-64 w-full">
+                    <Image 
+                      src={example.src} 
+                      alt={example.alt}
+                      fill
+                      style={{ objectFit: 'cover' }}
+                      className="hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                  <div className="p-3 bg-white">
+                    <p className="text-sm font-medium">{example.style}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Try Me Button */}
+      <div className="text-center mb-12">
+        <Link href="/try-me">
+          <button className="bg-black text-white px-8 py-3 rounded-md font-medium hover:bg-gray-800 transition-colors">
+            Try Me
+          </button>
+        </Link>
+      </div>
+
+      {/* Footer Section */}
+      <div className="border-t pt-8 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Operations */}
+          <div>
+            <h4 className="font-semibold mb-3">Operations</h4>
+            <p className="text-sm text-gray-600 mb-2">Mon - Fri 8 am - 6 pm</p>
+            <h5 className="font-medium mb-2">Information</h5>
+            <ul className="text-sm space-y-1">
+              <li><Link href="/privacy-policy" className="hover:underline">Privacy Policy</Link></li>
+              <li><Link href="/terms-conditions" className="hover:underline">Terms & Conditions</Link></li>
+            </ul>
+          </div>
+          
+          {/* Join the Community */}
+          <div>
+            <h4 className="font-semibold mb-3">Join the Community</h4>
+            <div className="mb-4">
+              <input 
+                type="email" 
+                placeholder="Email" 
+                className="w-full p-2 border rounded mb-2"
+              />
+              <button className="w-full bg-black text-white p-2 rounded font-medium hover:bg-gray-800 transition-colors">
+                Sign Up
+              </button>
+            </div>
+          </div>
+          
+          {/* Write to Us */}
+          <div>
+            <h4 className="font-semibold mb-3">Write to US</h4>
+            <div className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span>contact@bangbangwallpaper.com</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
