@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+
 // This would be stored in environment variables in a production app
-const IMAGINE_API_URL = 'https://cl.imagineapi.dev/items/images/';
+const IMAGINE_API_URL = process.env.IMAGINE_API_URL || 'https://cl.imagineapi.dev/items/images/';
 
 // Function to get API key from environment variables
 async function getImagineApiKey() {
   // In a real implementation, this would use environment variables
+  // For development, you might want to use a .env.local file
   // return process.env.IMAGINE_API_KEY;
   
   // For demo purposes, we'll return a placeholder
-  return 'imgn_wnafojyehxkrxlt65km7yilgr3adobwn';
+  // You'll need to replace this with your actual API key
+  return process.env.IMAGINE_API_KEY || 'imgn_wnafojyehxkrxlt65km7yilgr3adobwn';
 }
+
 
 // Handler for GET requests to retrieve generated images
 export async function GET(request: NextRequest, { params }: any) {

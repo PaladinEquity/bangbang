@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${key}`,
         'Content-Type': 'application/json'
       },
+      cache: 'no-store',
       body: JSON.stringify({ prompt: fullPrompt })
     });
 
