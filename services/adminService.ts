@@ -2,7 +2,8 @@
  * Service for handling admin operations
  */
 import { generateClient } from 'aws-amplify/data';
-import { AdminGetUserCommand, AdminUpdateUserAttributesCommand, CognitoIdentityProviderClient,ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { AdminGetUserCommand, AdminUpdateUserAttributesCommand, CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import type { Schema } from '@/amplify/data/resource';
 import { WallpaperData } from '@/types/wallpaper';
 import { OrderData } from '@/types/order';
@@ -11,16 +12,31 @@ import outputs from "@/amplify_outputs.json";
 // Initialize the Amplify data client
 const client = generateClient<Schema>();
 
-// Initialize Cognito client
-const cognitoClient = new CognitoIdentityProviderClient({
-  region: outputs.auth.aws_region,
-});
+// Function to get authenticated Cognito client
+async function getAuthenticatedCognitoClient() {
+  try {
+    const session = await fetchAuthSession();
+    if (!session.credentials) {
+      throw new Error('Credential is missing');
+    }
+    
+    return new CognitoIdentityProviderClient({
+      region: outputs.auth.aws_region,
+      credentials: session.credentials
+    });
+  } catch (error) {
+    console.error('Error getting authenticated client:', error);
+    throw error;
+  }
+}
 
 // Get all users from Cognito user pool
 export async function getAllUsers() {
   try {
-    // Use ListUsersCommand from Cognito
+    // Get authenticated Cognito client
+    const cognitoClient = await getAuthenticatedCognitoClient();
     
+    // Use ListUsersCommand from Cognito
     const command = new ListUsersCommand({
       UserPoolId: outputs.auth.user_pool_id,
       Limit: 60, // Adjust as needed
@@ -61,6 +77,9 @@ export async function getAllUsers() {
 // Get user by ID
 export async function getUserById(userId: string) {
   try {
+    // Get authenticated Cognito client
+    const cognitoClient = await getAuthenticatedCognitoClient();
+    
     // Use AdminGetUserCommand from Cognito
     const command = new AdminGetUserCommand({
       UserPoolId: outputs.auth.user_pool_id,
@@ -96,6 +115,9 @@ export async function getUserById(userId: string) {
 // Update user role
 export async function updateUserRole(userId: string, role: 'admin' | 'user') {
   try {
+    // Get authenticated Cognito client
+    const cognitoClient = await getAuthenticatedCognitoClient();
+    
     // Use AdminUpdateUserAttributesCommand from Cognito
     const command = new AdminUpdateUserAttributesCommand({
       UserPoolId: outputs.auth.user_pool_id,
@@ -119,6 +141,9 @@ export async function updateUserRole(userId: string, role: 'admin' | 'user') {
 // Update user attributes
 export async function updateUserAttributes(userId: string, attributes: Record<string, string>) {
   try {
+    // Get authenticated Cognito client
+    const cognitoClient = await getAuthenticatedCognitoClient();
+    
     // Use AdminUpdateUserAttributesCommand from Cognito
     const userAttributes = Object.entries(attributes).map(([key, value]) => ({
       Name: key,
@@ -142,6 +167,9 @@ export async function updateUserAttributes(userId: string, attributes: Record<st
 // Reset user password
 export async function resetUserPassword(userId: string) {
   try {
+    // Get authenticated Cognito client
+    const cognitoClient = await getAuthenticatedCognitoClient();
+    
     // Use AdminResetUserPasswordCommand from Cognito
     const { AdminResetUserPasswordCommand } = await import('@aws-sdk/client-cognito-identity-provider');
     

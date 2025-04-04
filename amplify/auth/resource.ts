@@ -81,5 +81,10 @@ export const auth = defineAuth({
       mutable: true,
       dataType: "String",
     },
+    // Custom attribute for user role
+    "custom:role": {
+      mutable: true,
+      dataType: "String",
+    },
   },
 });
