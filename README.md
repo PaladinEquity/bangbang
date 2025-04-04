@@ -1,10 +1,10 @@
-## AWS Amplify Next.js (App Router) Starter Template
+## Killer Walls - Custom AI Wallpaper Design
 
-This repository provides a starter template for creating applications using Next.js (App Router) and AWS Amplify, emphasizing easy setup for authentication, API, and database capabilities.
+This repository contains the codebase for Killer Walls, a platform that uses cutting-edge AI to create custom wallpaper designs tailored to your unique style and preferences.
 
 ## Overview
 
-This template equips you with a foundational Next.js application integrated with AWS Amplify, streamlined for scalability and performance. It is ideal for developers looking to jumpstart their project with pre-configured AWS services like Cognito, AppSync, and DynamoDB.
+Killer Walls transforms your space with AI-generated wallpaper designs that tell your story. Our platform allows users to create, customize, and order high-quality wallpapers that reflect their personal style and narrative.
 
 ## Features
 

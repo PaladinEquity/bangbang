@@ -4,40 +4,16 @@ import { useState, useEffect } from 'react';
 import RouteProtection from '../../components/auth/RouteProtection';
 import Link from 'next/link';
 import { getCartItems, updateCartItemQuantity, removeCartItem, calculateCartTotal, createCartOrder } from '@/services/wallpaperService';
-import { processPayment, processCardPayment, getPaymentMethods } from '@/services/paymentService';
+import { processPayment, getPaymentMethods } from '@/services/paymentService';
 import { useAuth } from '@/components/auth/AuthContext';
 import { toast } from 'react-hot-toast';
 import { StripeCardElement } from '@/components/payment/StripeCardElement';
 import { PaymentMethodSelector } from '@/components/payment/PaymentMethodSelector';
 import { useRouter } from 'next/navigation';
+import { CartItem } from '@/types/order';
+import { PaymentMethod } from '@/types/payment';
 
-type CartItem = {
-  id: string | null;
-  name: string;
-  description: string | null;
-  price: number;
-  quantity: number;
-  imageUrl?: string | null;
-  imageData?: string | null; // For custom wallpapers
-  options: {
-    rollSize: string;
-    patternSize?: string | null;
-  };
-  isCustom: boolean;
-  wallpaperId: string;
-};
-
-type PaymentMethod = {
-  id: string;
-  type: 'card' | 'bank_account';
-  name: string;
-  lastFour: string;
-  isDefault: boolean;
-  stripeTokenId: string;
-  expiryDate?: string;
-  cardType?: string;
-  bankName?: string;
-};
+// Remove duplicate type definitions since we're importing from centralized types
 
 function CartContent() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -57,13 +33,13 @@ function CartContent() {
     const loadPaymentMethods = async () => {
       if (!user) return;
       try {
-        const methods = await getPaymentMethods();
+        const methods = await getPaymentMethods(user.userId);
         setPaymentMethods(methods);
         
         // Set default payment method if available
         const defaultMethod = methods.find(method => method.isDefault);
         if (defaultMethod) {
-          setSelectedPaymentMethod(defaultMethod.id);
+          setSelectedPaymentMethod(defaultMethod.id || '');
         }
       } catch (error) {
         console.error('Error loading payment methods:', error);
@@ -95,6 +71,7 @@ function CartContent() {
     // Add the new payment method to the list
     const newMethod: PaymentMethod = {
       id: paymentMethod.id,
+      userId: user?.userId || '',
       type: 'card',
       name: `${paymentMethod.card.brand.toUpperCase()} ending in ${paymentMethod.card.last4}`,
       lastFour: paymentMethod.card.last4,
@@ -105,12 +82,12 @@ function CartContent() {
     };
     
     setPaymentMethods(prev => [...prev, newMethod]);
-    setSelectedPaymentMethod(newMethod.id);
+    setSelectedPaymentMethod(newMethod.id || '');
     setShowAddPaymentMethod(false);
     toast.success('Payment method added successfully');
     
     // Process payment with the new method
-    processPaymentWithMethod(newMethod.id);
+    processPaymentWithMethod(newMethod.id || '');
   };
 
   // Handle ACH payment method
@@ -118,6 +95,7 @@ function CartContent() {
     // Add the new payment method to the list
     const newMethod: PaymentMethod = {
       id: paymentMethod.id,
+      userId: user?.userId || '',
       type: 'bank_account',
       name: `${paymentMethod.bank_account.bank_name} ending in ${paymentMethod.bank_account.last4}`,
       lastFour: paymentMethod.bank_account.last4,
@@ -127,12 +105,12 @@ function CartContent() {
     };
     
     setPaymentMethods(prev => [...prev, newMethod]);
-    setSelectedPaymentMethod(newMethod.id);
+    setSelectedPaymentMethod(newMethod.id || '');
     setShowAddPaymentMethod(false);
     toast.success('Payment method added successfully');
     
     // Process payment with the new method
-    processPaymentWithMethod(newMethod.id);
+    processPaymentWithMethod(newMethod.id || '');
   };
 
   // Process payment with selected or new payment method
@@ -167,7 +145,11 @@ function CartContent() {
       const method = paymentMethods.find(m => m.id === paymentMethodId);
       let paymentMethodDescription = 'Payment method';
       if (method) {
-        paymentMethodDescription = method.name;
+        if (method.type === 'card' && method.cardType) {
+          paymentMethodDescription = `${method.cardType.toUpperCase()} ending in ${method.lastFour || ''}`;
+        } else if (method.type === 'bank_account' && method.bankName) {
+          paymentMethodDescription = method.bankName;
+        }
       }
       
       // Create the order
@@ -207,8 +189,6 @@ function CartContent() {
     const fetchCartItems = async () => {
       if(!user) return;
       const items = await getCartItems(user.userId);
-
-      console.log("------------",items,"------------")
       setCartItems(items);
     };
     fetchCartItems();
@@ -387,6 +367,66 @@ function CartContent() {
                 </button>
               ) : (
                 <div className="space-y-4 mt-4 border-t pt-4">
+                  <h3 className="text-lg font-semibold">Payment Information</h3>
+                  <div className="bg-gray-50 p-4 rounded-md mb-6">
+                    {paymentMethods.length > 0 && !showAddPaymentMethod ? (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Select a payment method</label>
+                          {paymentMethods.map((method) => (
+                            <div key={method.id} className="flex items-center mb-2">
+                              <input
+                                type="radio"
+                                id={`payment-${method.id}`}
+                                name="paymentMethod"
+                                className="h-4 w-4 text-gray-800 focus:ring-0 border-gray-300"
+                                checked={selectedPaymentMethod === method.id}
+                                onChange={() => setSelectedPaymentMethod(method.id)}
+                                disabled={isProcessingPayment}
+                              />
+                              <label htmlFor={`payment-${method.id}`} className="ml-2 block text-sm text-gray-700">
+                                {method.name}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <button
+                          type="button"
+                          className="text-gray-600 hover:text-gray-800 text-sm underline"
+                          onClick={() => setShowAddPaymentMethod(true)}
+                          disabled={isProcessingPayment}
+                        >
+                          + Add a new payment method
+                        </button>
+                      </div>
+                    ) : (
+                      showAddPaymentMethod ? (
+                        <div>
+                          <PaymentMethodSelector
+                            onCardSuccess={handleCardSuccess}
+                            onACHSuccess={handleACHSuccess}
+                            onError={handlePaymentError}
+                          />
+                          <button
+                            type="button"
+                            className="text-gray-600 hover:text-gray-800 text-sm mt-2 underline"
+                            onClick={() => setShowAddPaymentMethod(false)}
+                            disabled={isProcessingPayment}
+                          >
+                            ← Back to saved payment methods
+                          </button>
+                        </div>
+                      ) : (
+                        <StripeCardElement
+                          onSuccess={handlePaymentSuccess}
+                          onError={handlePaymentError}
+                          buttonText={isProcessingPayment ? "Processing..." : "Pay $" + total.toFixed(2)}
+                        />
+                      )
+                    )}
+                  </div>
+                  
                   <h3 className="text-lg font-semibold">Shipping Information</h3>
                   
                   <div className="space-y-3">
@@ -437,75 +477,15 @@ function CartContent() {
                     )}
                   </div>
                   
-                  <h3 className="text-lg font-semibold mt-4">Payment Information</h3>
-                  <div className="bg-gray-50 p-4 rounded-md">
-                    {paymentMethods.length > 0 && !showAddPaymentMethod ? (
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Select a payment method</label>
-                          {paymentMethods.map((method) => (
-                            <div key={method.id} className="flex items-center mb-2">
-                              <input
-                                type="radio"
-                                id={`payment-${method.id}`}
-                                name="paymentMethod"
-                                className="h-4 w-4 text-gray-800 focus:ring-0 border-gray-300"
-                                checked={selectedPaymentMethod === method.id}
-                                onChange={() => setSelectedPaymentMethod(method.id)}
-                                disabled={isProcessingPayment}
-                              />
-                              <label htmlFor={`payment-${method.id}`} className="ml-2 block text-sm text-gray-700">
-                                {method.name}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                        
-                        <div className="flex flex-col space-y-3">
-                          <button
-                            type="button"
-                            className="bg-black text-white px-4 py-2 rounded font-medium hover:bg-gray-800 transition-colors"
-                            onClick={() => processPaymentWithMethod(selectedPaymentMethod)}
-                            disabled={!selectedPaymentMethod || isProcessingPayment}
-                          >
-                            {isProcessingPayment ? "Processing..." : `Pay $${total.toFixed(2)}`}
-                          </button>
-                          
-                          <button
-                            type="button"
-                            className="text-gray-600 hover:text-gray-800 text-sm underline"
-                            onClick={() => setShowAddPaymentMethod(true)}
-                            disabled={isProcessingPayment}
-                          >
-                            + Add a new payment method
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      showAddPaymentMethod ? (
-                        <div>
-                          <PaymentMethodSelector
-                            onCardSuccess={handleCardSuccess}
-                            onACHSuccess={handleACHSuccess}
-                            onError={handlePaymentError}
-                          />
-                          <button
-                            type="button"
-                            className="text-gray-600 hover:text-gray-800 text-sm mt-2 underline"
-                            onClick={() => setShowAddPaymentMethod(false)}
-                            disabled={isProcessingPayment}
-                          >
-                            ← Back to saved payment methods
-                          </button>
-                        </div>
-                      ) : (
-                        <StripeCardElement
-                          onSuccess={handlePaymentSuccess}
-                          onError={handlePaymentError}
-                          buttonText={isProcessingPayment ? "Processing..." : "Pay $" + total.toFixed(2)}
-                        />
-                      )
-                    )}
+                  <div className="mt-6">
+                    <button
+                      type="button"
+                      className="w-full bg-black text-white px-4 py-2 rounded font-medium hover:bg-gray-800 transition-colors"
+                      onClick={() => processPaymentWithMethod(selectedPaymentMethod)}
+                      disabled={!selectedPaymentMethod || isProcessingPayment}
+                    >
+                      {isProcessingPayment ? "Processing..." : `Pay $${total.toFixed(2)}`}
+                    </button>
                   </div>
                   
                   <button 

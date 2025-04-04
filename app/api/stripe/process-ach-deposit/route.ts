@@ -55,17 +55,8 @@ export async function POST(request: NextRequest) {
     // Update the user's wallet balance in the database
     const client = generateClient<Schema>();
     
-    // Create a transaction record
-    const transaction = await client.models.Transaction.create({
-      userId,
-      amount,
-      description: description || 'Wallet deposit via ACH',
-      paymentMethodId: bankAccount.id,
-      date: new Date().toISOString(),
-      status: paymentIntent.status || 'pending',
-      type: 'deposit',
-      stripePaymentId: paymentIntent.id
-    });
+    // Transaction model has been removed, so we're not creating a transaction record anymore
+    // Instead, we'll just update the wallet balance directly
     
     // Update the wallet balance
     const walletResponse = await client.models.Wallet.list({
@@ -94,7 +85,6 @@ export async function POST(request: NextRequest) {
         status: paymentIntent.status,
         amount: amount,
       },
-      transaction,
       wallet,
     });
   } catch (error: any) {

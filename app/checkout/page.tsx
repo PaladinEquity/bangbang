@@ -2,41 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import RouteProtection from '@/components/auth/RouteProtection';
-import { PaymentMethodSelector } from '@/components/payment/PaymentMethodSelector';
-import { getCartItems, calculateCartTotal, clearCart } from '@/services/wallpaperService';
-import { getPaymentMethods, processPayment } from '@/services/paymentService';
 import { toast } from 'react-hot-toast';
+import Link from "next/link";
 import { useAuth } from '@/components/auth/AuthContext';
-
-type CartItem = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  quantity: number;
-  imageUrl?: string;
-  imageData?: string;
-  options: {
-    rollSize: string;
-    patternSize?: string;
-  };
-  isCustom: boolean;
-  wallpaperId: string;
-};
-
-type PaymentMethod = {
-  id: string;
-  type: 'card' | 'bank_account';
-  name: string;
-  lastFour: string;
-  isDefault: boolean;
-  stripeTokenId: string;
-  expiryDate?: string;
-  cardType?: string;
-  bankName?: string;
-};
+import { getCartItems, updateCartItemQuantity, removeCartItem, calculateCartTotal, createCartOrder,clearCart } from '@/services/wallpaperService';
+import { processPayment, getPaymentMethods } from '@/services/paymentService';
+import { PaymentMethodSelector } from '@/components/payment/PaymentMethodSelector';
+import RouteProtection from '@/components/auth/RouteProtection';
+import { CartItem } from '@/types/order';
+import { PaymentMethod } from '@/types/payment';
+// Remove duplicate type definitions since we're importing from centralized types
 
 async function CheckoutContent() {
   const router = useRouter();
@@ -71,13 +46,15 @@ async function CheckoutContent() {
 
   const loadPaymentMethods = async () => {
     try {
-      const methods = await getPaymentMethods();
+      // Get the Stripe customer ID from user attributes
+      const stripeCustomerId = user?.attributes?.['custom:stripeCustomerId'] || '';
+      const methods = await getPaymentMethods(stripeCustomerId);
       setPaymentMethods(methods);
       
       // Set default payment method if available
       const defaultMethod = methods.find(method => method.isDefault);
       if (defaultMethod) {
-        setSelectedPaymentMethod(defaultMethod.id);
+        setSelectedPaymentMethod(defaultMethod?.id || '');
       }
     } catch (error) {
       console.error('Error loading payment methods:', error);
@@ -104,6 +81,7 @@ async function CheckoutContent() {
     // Add the new payment method to the list
     const newMethod: PaymentMethod = {
       id: paymentMethod.id,
+      userId: user?.userId || '',
       type: 'card',
       name: `${paymentMethod.card.brand.toUpperCase()} ending in ${paymentMethod.card.last4}`,
       lastFour: paymentMethod.card.last4,
@@ -123,6 +101,7 @@ async function CheckoutContent() {
     // Add the new bank account to the list
     const newMethod: PaymentMethod = {
       id: paymentMethod.id,
+      userId: user?.userId || '',
       type: 'bank_account',
       name: `${paymentMethod.bank_account.bank_name} ending in ${paymentMethod.bank_account.last4}`,
       lastFour: paymentMethod.bank_account.last4,

@@ -14,8 +14,8 @@ const playfairDisplay = Playfair_Display({ subsets: ["latin"], variable: "--font
 const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-roboto-mono" });
 
 export const metadata: Metadata = {
-  title: "BangBang Wallpaper",
-  description: "Custom wallpaper created by you",
+  title: "Killer Walls",
+  description: "Custom wallpaper designs that make a statement",
 };
 
 export default function RootLayout({

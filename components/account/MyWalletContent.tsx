@@ -7,52 +7,10 @@ import { toast } from 'react-hot-toast';
 import { Elements } from '@stripe/react-stripe-js';
 import { getStripe } from '@/lib/stripe-client';
 import { PaymentMethodSelector } from '../payment/PaymentMethodSelector';
-
-// Define types for our data models
-type PaymentMethod = {
-  id: string | null | undefined;
-  userId: string | null | undefined;
-  type: 'card' | 'bank_account' | null;
-  lastFour: string | null | undefined;
-  isDefault: boolean;
-  stripeTokenId: string | null | undefined;
-  expiryDate: string | null | undefined;
-  cardType: string | null | undefined;
-  // bankName?: string;
-};
-
-type Transaction = {
-  id: string | number | null;
-  date: string | null;
-  description: string | null;
-  amount: number | null;
-  status: string | null;
-  type: 'deposit' | 'withdrawal' | 'transfer' | 'payment' | null;
-  paymentMethodId?: string | null;
-  stripePaymentId?: string | null;
-  userId?: string | null;
-};
-
-type BankAccount = {
-  accountHolderName: string | null,
-  lastFour: string | null,
-  routingNumber: string | null,
-  bankName: string | null,
-  isVerified: boolean,
-  stripeTokenId: string | null,
-  userId: string | null,
-}
-
-type WalletData = {
-  balance: number;
-  paymentMethods: PaymentMethod[];
-  transactions: Transaction[];
-};
-
-type StripeCustomer = {
-  customerId: string;
-  isNew: boolean;
-};
+import { PaymentMethod, BankAccount, StripeCustomer } from '@/types/payment';
+import { Transaction, WalletData } from '@/types/wallet';
+import { updateUserAttributes } from 'aws-amplify/auth';
+import { createOrGetStripeCustomer as getStripeCustomer, createCardPaymentMethod, createBankPaymentMethod, processACHDeposit,setDefaultPaymentMethod,getPaymentMethods, } from '@/services/paymentService';
 
 export default function MyWalletContent() {
   const { user } = useAuth();
@@ -82,8 +40,17 @@ export default function MyWalletContent() {
     if (user) {
       console.log(user);
       fetchWalletData();
-      // Only create customer if we don't already have an ID
-      if (!stripeCustomerId) {
+      
+      // Check if user already has a Stripe customer ID in their attributes
+      const existingStripeCustomerId = user.attributes?.['custom:stripeCustomerId'];
+      
+      if (existingStripeCustomerId) {
+        // Use the existing Stripe customer ID from user attributes
+        console.log('Using existing Stripe customer ID from user attributes:', existingStripeCustomerId);
+        setStripeCustomerId(existingStripeCustomerId);
+        fetchStripePaymentMethods(existingStripeCustomerId);
+      } else if (!stripeCustomerId) {
+        // Only create customer if we don't already have an ID
         createOrGetStripeCustomer();
       }
     } else {
@@ -109,28 +76,33 @@ export default function MyWalletContent() {
       
       isCreatingCustomer.current = true;
       
-      const response = await fetch('/api/stripe/create-customer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.userId,
-          email: user.email,
-          name: user.name || user.username,
-        }),
-      });
+      // Use the paymentService to create or get a Stripe customer
+      const customerData = await getStripeCustomer(
+        user.userId,
+        user?.email || '',
+        user.name || user.username
+      );
       
-      if (!response.ok) {
-        throw new Error('Failed to create Stripe customer');
-      }
-      
-      const customerData: StripeCustomer = await response.json();
-      console.log("customerData",customerData);
+      console.log("customerData", customerData);
       setStripeCustomerId(customerData.customerId);
       
-      // If we have a customer ID, fetch payment methods from Stripe
+      // Save the Stripe customer ID to the user's custom attribute
       if (customerData.customerId) {
+        try {
+          // Update the user's custom attribute with the Stripe customer ID
+          await updateUserAttributes({
+            userAttributes: {
+              'custom:stripeCustomerId': customerData.customerId
+            }
+          });
+          
+          console.log('Stripe customer ID saved to user attributes');
+        } catch (attrError) {
+          console.error('Error saving Stripe customer ID to user attributes:', attrError);
+          // Continue with the flow even if saving to attributes fails
+        }
+        
+        // Fetch payment methods from Stripe
         fetchStripePaymentMethods(customerData.customerId);
       }
     } catch (error) {
@@ -147,23 +119,11 @@ export default function MyWalletContent() {
   // Fetch payment methods from Stripe
   const fetchStripePaymentMethods = async (customerId: string) => {
     try {
-      const response = await fetch('/api/stripe/get-payment-methods', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ customerId }),
-      });
+      // Use paymentService to get payment methods
+      const methods = await getPaymentMethods(customerId);
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch payment methods');
-      }
-      
-      const data = await response.json();
-      if (data.paymentMethods) {
-        // Set payment methods directly from the formatted response
-        setPaymentMethods(data.paymentMethods);
-      }
+      // Set payment methods directly from the service response
+      setPaymentMethods(methods);
     } catch (error) {
       console.error('Error fetching Stripe payment methods:', error);
       // Don't show error to user as this is a background operation
@@ -205,25 +165,16 @@ export default function MyWalletContent() {
         return;
       }
       
-      // Attach the card to the customer
-      const attachResponse = await fetch('/api/stripe/create-card-payment-method', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          cardToken: paymentMethod.id,
-          customerId: stripeCustomerId,
-          isDefault: isDefault || paymentMethods.length === 0, // Make default if it's the first card
-        }),
-      });
+      // Use paymentService to attach the card to the customer
+      const paymentMethodData = await createCardPaymentMethod(
+        paymentMethod.id,
+        stripeCustomerId,
+        isDefault || paymentMethods.length === 0 // Make default if it's the first card
+      );
       
-      if (!attachResponse.ok) {
-        const errorData = await attachResponse.json();
-        throw new Error(errorData.error || 'Failed to attach card to customer');
+      if (!paymentMethodData.success) {
+        throw new Error(paymentMethodData.error || 'Failed to attach card to customer');
       }
-      
-      const paymentMethodData = await attachResponse.json();
       
       // Update local state with the new payment method
       if (paymentMethodData.success) {
@@ -236,7 +187,7 @@ export default function MyWalletContent() {
           isDefault: isDefault || paymentMethods.length === 0,
           stripeTokenId: paymentMethod.id,
           expiryDate: `${paymentMethod.card.exp_month.toString().padStart(2, '0')}/${paymentMethod.card.exp_year.toString().slice(-2)}`,
-          cardType: paymentMethod.card.brand
+          cardType: paymentMethod.card.brand,
         };
         
         // No longer saving payment method to database, only using Stripe
@@ -280,25 +231,16 @@ export default function MyWalletContent() {
         return;
       }
       
-      // Create a setup intent and attach the bank account to the customer
-      const response = await fetch('/api/stripe/create-bank-payment-method', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          paymentMethodId: paymentMethod.id,
-          customerId: stripeCustomerId,
-          isDefault: isDefault || paymentMethods.length === 0, // Make default if it's the first payment method
-        }),
-      });
+      // Use paymentService to attach the bank account to the customer
+      const paymentMethodData = await createBankPaymentMethod(
+        paymentMethod.id,
+        stripeCustomerId,
+        isDefault || paymentMethods.length === 0 // Make default if it's the first payment method
+      );
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to attach bank account to customer');
+      if (!paymentMethodData.success) {
+        throw new Error(paymentMethodData.error || 'Failed to attach bank account to customer');
       }
-      
-      const paymentMethodData = await response.json();
       
       // Update local state with the new payment method
       if (paymentMethodData.success) {
@@ -310,8 +252,7 @@ export default function MyWalletContent() {
           isDefault: isDefault || paymentMethods.length === 0,
           stripeTokenId: paymentMethod.id,
           userId: user.userId,
-          expiryDate: null,
-          cardType: null
+          bankName: paymentMethod.bank_account.bank_name,
         };
         
         // No longer saving to database, only using Stripe
@@ -366,24 +307,16 @@ export default function MyWalletContent() {
       
       // Different processing based on payment method type
       if (selectedMethod?.type === 'bank_account') {
-        // Process ACH deposit
-        const response = await fetch('/api/stripe/process-ach-deposit', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            amount,
-            bankAccountToken: selectedMethod.id,
-            userId: user?.userId || 'guest',
-            description: 'Wallet deposit via ACH',
-          }),
-        });
+        // Process ACH deposit using paymentService
+        const result = await processACHDeposit(
+          amount,
+          selectedMethod.id,
+          user?.userId || 'guest',
+          'Wallet deposit via ACH'
+        );
         
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to process ACH deposit');
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to process ACH deposit');
         }
       }
       
@@ -434,22 +367,11 @@ export default function MyWalletContent() {
         return;
       }
       
-      // Update in Stripe
-      const response = await fetch('/api/stripe/set-default-payment-method', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          customerId: stripeCustomerId,
-          paymentMethodId: id,
-          type: method.type,
-        }),
-      });
+      // Use paymentService to set default payment method
+      const success = await setDefaultPaymentMethod(id, method.type);
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update default payment method');
+      if (!success) {
+        throw new Error('Failed to update default payment method');
       }
       
       // Update local state
@@ -582,7 +504,7 @@ export default function MyWalletContent() {
                 <>
                   <div className="w-10 h-6 bg-green-600 rounded mr-3"></div>
                   <div>
-                    <p className="font-medium">{'Bank Account'} ending in {method.lastFour}</p>
+                    <p className="font-medium">{method.bankName || 'Bank Account'} ending in {method.lastFour}</p>
                     <p className="text-sm text-gray-500">ACH Direct Debit</p>
                   </div>
                 </>

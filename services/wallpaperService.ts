@@ -3,37 +3,8 @@
  */
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '@/amplify/data/resource';
-
-type WallpaperData = {
-  id?: string | null;
-  imageData: string; // Base64 encoded image data
-  description: string | null;
-  primaryImagery: string | null;
-  size: string | null;
-  price: number;
-  userId?: string | null; // Owner of the wallpaper
-};
-
-type CartItem = {
-  id: string | null;
-  name: string;
-  description: string | null;
-  price: number;
-  quantity: number;
-  imageUrl?: string | null;
-  imageData?: string | null; // For custom wallpapers
-  options: {
-    rollSize: string;
-    patternSize?: string | null;
-  };
-  isCustom: boolean;
-  wallpaperId: string;
-};
-
-// Generate a unique ID
-const generateId = (): string => {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2);
-};
+import { WallpaperData } from '@/types/wallpaper';
+import { CartItem, OrderData } from '@/types/order';
 
 // Initialize the Amplify data client
 const client = generateClient<Schema>();
@@ -133,9 +104,7 @@ export async function addToCart(item: CartItem, userId: string): Promise<void> {
       });
     } else {
       // Add new item
-      const cartItemId = generateId();
       await client.models.CartItem.create({
-        id: cartItemId,
         name: item.name,
         description: item.description,
         price: item.price,
@@ -248,21 +217,7 @@ export async function calculateCartTotal(userId: string): Promise<number> {
   }
 }
 
-// Order type definition
-type OrderData = {
-  id?: string | null;
-  orderNumber: string | null;
-  totalAmount: number | null;
-  status: string | null;
-  paymentStatus: string | null;
-  paymentMethod?: string | null;
-  stripePaymentId?: string | null;
-  shippingAddress?: string | null;
-  billingAddress?: string | null;
-  orderDate: string | null;
-  items: string | null; // JSON string of cart items
-  userId?: string | null;
-};
+// Using OrderData type from types/order.ts
 
 // No longer using localStorage for orders
 
@@ -287,11 +242,9 @@ export async function createCartOrder(userId: string, shippingAddress: string, b
     
     // Generate order number
     const orderNumber = generateOrderNumber();
-    const orderId = generateId();
     
     // Save to Amplify DataStore
-    await client.models.CartOrder.create({
-      id: orderId,
+    const newOrder = await client.models.CartOrder.create({
       orderNumber,
       totalAmount,
       status: 'processing',
@@ -309,7 +262,7 @@ export async function createCartOrder(userId: string, shippingAddress: string, b
     // Clear cart after successful order creation
     await clearCart(userId);
     
-    return orderId;
+    return newOrder.data?.id || '';
   } catch (error) {
     console.error('Error creating order:', error);
     throw error;

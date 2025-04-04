@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from './auth/AuthContext';
 import AuthButtons from './auth/AuthButtons';
@@ -84,20 +85,15 @@ const Header = () => {
                 transition={{ duration: 0.3 }}
                 className="flex items-center cursor-pointer focus:outline-none"
               >
-                <svg
-                  preserveAspectRatio="xMidYMid meet"
-                  viewBox="10 10 180 180"
-                  height="40"
-                  width="40"
-                  xmlns="http://www.w3.org/2000/svg"
+                <Image
+                  src="/logo.png"
+                  alt="Killer Walls Logo"
+                  width={60}
+                  height={60}
                   className="mr-2"
-                >
-                  <g>
-                    <path d="M190 100l-27.182-27.182 26-26L182 40l-26 26-56-56-90 90 56 56-26 26 6.818 6.818 26-26L100 190l90-90zm-159.545 0L100 30.455l45.818 45.818-69.545 69.545L30.455 100zm122.181-17l17 17L100 169.545l-17-17L152.636 83z" fill="#000000"></path>
-                  </g>
-                </svg>
+                />
                 <div className="flex flex-col">
-                  <span className="text-xl md:text-2xl lg:text-3xl font-medium">BangBang</span>
+                  <span className="text-xl md:text-2xl lg:text-3xl font-medium">Killer Walls</span>
                   <span className="text-xl md:text-2xl lg:text-3xl font-medium">Wallpaper</span>
                 </div>
               </motion.div>

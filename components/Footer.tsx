@@ -75,21 +75,16 @@ const Footer = () => {
       >
         <div className="flex flex-col items-center">
           <div className="mb-3">
-            <svg
-              preserveAspectRatio="xMidYMid meet"
-              viewBox="10 10 180 180"
-              height="50"
-              width="50"
-              xmlns="http://www.w3.org/2000/svg"
+            <Image
+              src="/logo.png"
+              alt="Killer Walls Logo"
+              width={80}
+              height={80}
               className="hover:opacity-80 transition-opacity duration-200"
-            >
-              <g>
-                <path d="M190 100l-27.182-27.182 26-26L182 40l-26 26-56-56-90 90 56 56-26 26 6.818 6.818 26-26L100 190l90-90zm-159.545 0L100 30.455l45.818 45.818-69.545 69.545L30.455 100zm122.181-17l17 17L100 169.545l-17-17L152.636 83z" fill="#000000"></path>
-              </g>
-            </svg>
+            />
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-xl font-medium">BangBang</span>
+            <span className="text-xl font-medium">Killer Walls</span>
             <span className="text-xl">Wallpaper</span>
           </div>
         </div>
@@ -111,7 +106,7 @@ const Footer = () => {
       </motion.div>
 
       <div className="text-center text-sm text-gray-500 mt-8">
-        <p>© {new Date().getFullYear()} BangBang Wallpaper. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} Killer Walls. All rights reserved.</p>
       </div>
     </footer>
   );

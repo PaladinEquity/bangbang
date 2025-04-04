@@ -8,16 +8,9 @@ import {
   useElements,
 } from '@stripe/react-stripe-js';
 import { getStripe } from '@/lib/stripe-client';
+import { StripeElementsProps } from '@/types/payment';
 
-type StripeCardFormProps = {
-  onSuccess: (paymentMethod: { id: string; card: { brand: string; last4: string; exp_month: number; exp_year: number } }) => void;
-  onError: (error: Error) => void;
-  buttonText?: string;
-  isDefault?: boolean;
-  onDefaultChange?: (isDefault: boolean) => void;
-};
-
-const StripeCardForm: React.FC<StripeCardFormProps> = ({
+const StripeCardForm: React.FC<StripeElementsProps> = ({
   onSuccess,
   onError,
   buttonText = 'Save Card',
@@ -159,15 +152,7 @@ const StripeCardForm: React.FC<StripeCardFormProps> = ({
   );
 };
 
-type StripeCardElementProps = {
-  onSuccess: (paymentMethod: { id: string; card: { brand: string; last4: string; exp_month: number; exp_year: number } }) => void;
-  onError: (error: Error) => void;
-  buttonText?: string;
-  isDefault?: boolean;
-  onDefaultChange?: (isDefault: boolean) => void;
-};
-
-export const StripeCardElement: React.FC<StripeCardElementProps> = (props) => {
+export const StripeCardElement: React.FC<StripeElementsProps> = (props) => {
   return (
     <Elements stripe={getStripe()}>
       <StripeCardForm {...props} />

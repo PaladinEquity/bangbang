@@ -3,8 +3,8 @@ import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 /*
 This schema defines the data models for the wallet functionality with Stripe integration,
 as well as cart and order management.
-It includes models for User, PaymentMethod, BankAccount, Transaction, Wallet, and CartOrder with proper
-relationships and authorization rules.
+It includes models for User, Wallet, and CartOrder with proper relationships and authorization rules.
+Payment processing is handled directly through Stripe API.
 */
 const schema = a.schema({
   Wallpaper: a
@@ -60,84 +60,20 @@ const schema = a.schema({
       allow.owner(),
       allow.authenticated().to(['read']),
     ]),
-    
-  User: a
-    .model({
-      email: a.string().required(),
-      name: a.string(),
-      stripeCustomerId: a.string(),
-      wallet: a.hasOne('Wallet', 'userId'),
-      paymentMethods: a.hasMany('PaymentMethod', 'userId'),
-      BankAccounts: a.hasMany('BankAccount', 'userId'),
-      transactions: a.hasMany('Transaction', 'userId'),
-      orders: a.hasMany('CartOrder', 'userId'),
-    })
-    .authorization((allow) => [
-      allow.owner(),
-      allow.authenticated().to(['read']),
-    ]),
 
   Wallet: a
     .model({
       balance: a.float().required().default(0),
       userId: a.id(),
       user: a.belongsTo('User', 'userId'),
-      transactions: a.hasMany('Transaction', 'userId'),
     })
     .authorization((allow) => [
       allow.owner(),
       allow.authenticated().to(['read']),
     ]),
 
-  PaymentMethod: a
-    .model({
-      type: a.enum(['card', 'bank_account']),
-      lastFour: a.string().required(),
-      isDefault: a.boolean().required().default(false),
-      stripeTokenId: a.string(),
-      expiryDate: a.string(),
-      cardType: a.string(),
-      userId: a.id(),
-      user: a.belongsTo('User', 'userId'),
-    })
-    .authorization((allow) => [
-      allow.owner(),
-      allow.authenticated().to(['read']),
-    ]),
-
-  BankAccount: a
-    .model({
-      accountHolderName: a.string().required(),
-      lastFour: a.string().required(),
-      routingNumber: a.string().required(),
-      bankName: a.string(),
-      isVerified: a.boolean().required().default(false),
-      stripeTokenId: a.string(),
-      userId: a.id(),
-      user: a.belongsTo('User', 'userId'),
-    })
-    .authorization((allow) => [
-      allow.owner(),
-      allow.authenticated().to(['read']),
-    ]),
-
-  Transaction: a
-    .model({
-      date: a.datetime().required(),
-      description: a.string().required(),
-      amount: a.float().required(),
-      status: a.string().required().default('pending'),
-      type: a.enum(['deposit', 'withdrawal', 'transfer', 'payment']),
-      paymentMethodId: a.string(),
-      stripePaymentId: a.string(),
-      userId: a.id(),
-      user: a.belongsTo('User', 'userId'),
-      wallet: a.belongsTo('Wallet', 'userId'),
-    })
-    .authorization((allow) => [
-      allow.owner(),
-      allow.authenticated().to(['read']),
-    ]),
+  // Payment processing is handled directly through Stripe API
+  // PaymentMethod, BankAccount, and Transaction models have been removed
 });
 
 export type Schema = ClientSchema<typeof schema>;

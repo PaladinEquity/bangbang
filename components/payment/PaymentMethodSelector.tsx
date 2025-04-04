@@ -3,16 +3,9 @@
 import React, { useState } from 'react';
 import { StripeCardElement } from './StripeCardElement';
 import { StripeACHElement } from './StripeACHElement';
+import { PaymentMethodSelectorProps } from '@/types/payment';
 
 type PaymentMethodType = 'card' | 'ach';
-
-type PaymentMethodSelectorProps = {
-  onCardSuccess: (paymentMethod: { id: string; card: { brand: string; last4: string; exp_month: number; exp_year: number } }) => void;
-  onACHSuccess: (paymentMethod: { id: string; bank_account: { bank_name: string; last4: string; routing_number: string } }) => void;
-  onError: (error: Error) => void;
-  isDefault?: boolean;
-  onDefaultChange?: (isDefault: boolean) => void;
-};
 
 export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   onCardSuccess,

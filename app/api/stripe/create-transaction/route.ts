@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '@/amplify/data/resource';
+import { stripe } from '@/lib/stripe';
+
+// This endpoint has been updated to use Stripe directly for payment processing
+// as the Transaction model has been removed from the schema
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,7 +13,7 @@ export async function POST(request: NextRequest) {
     // Validate the required fields
     if (!userId || !amount || !description) {
       return NextResponse.json(
-        { error: 'Missing required transaction information' },
+        { error: 'Missing required information' },
         { status: 400 }
       );
     }
@@ -17,19 +21,9 @@ export async function POST(request: NextRequest) {
     // Initialize the Amplify data client
     const client = generateClient<Schema>();
 
-    // Create a new transaction
-    const transaction = await client.models.Transaction.create({
-      userId,
-      amount,
-      description,
-      paymentMethodId: paymentMethodId || undefined,
-      date: new Date().toISOString(),
-      status: status || 'completed',
-    });
-
-    // Update the wallet balance
+    // Update the wallet balance directly without creating a Transaction record
     const walletResponse = await client.models.Wallet.list({
-      filter: { id: { eq: userId } }
+      filter: { userId: { eq: userId } }
     });
     
     if (walletResponse.data && walletResponse.data.length > 0) {
@@ -41,7 +35,6 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({
         success: true,
-        transaction,
         wallet: updatedWallet,
       });
     } else {
@@ -53,15 +46,14 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({
         success: true,
-        transaction,
         wallet: newWallet,
         isNewWallet: true,
       });
     }
   } catch (error: any) {
-    console.error('Error creating transaction:', error);
+    console.error('Error updating wallet:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create transaction' },
+      { error: error.message || 'Failed to update wallet' },
       { status: 500 }
     );
   }

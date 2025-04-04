@@ -10,7 +10,7 @@ export default function PrivacyPolicy() {
         <p className="mb-4">Last Updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
         
         <h2 className="text-xl font-semibold mt-8 mb-4">1. Introduction</h2>
-        <p>At BangBang Wallpaper, we respect your privacy and are committed to protecting your personal data. This privacy policy will inform you about how we look after your personal data when you visit our website and tell you about your privacy rights and how the law protects you.</p>
+        <p>At Killer Walls, we respect your privacy and are committed to protecting your personal data. This privacy policy will inform you about how we look after your personal data when you visit our website and tell you about your privacy rights and how the law protects you.</p>
         
         <h2 className="text-xl font-semibold mt-8 mb-4">2. The Data We Collect About You</h2>
         <p>Personal data, or personal information, means any information about an individual from which that person can be identified. We may collect, use, store and transfer different kinds of personal data about you which we have grouped together as follows:</p>

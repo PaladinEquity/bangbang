@@ -8,26 +8,13 @@ import {
   PaymentElement,
 } from '@stripe/react-stripe-js';
 import { getStripe } from '@/lib/stripe-client';
+import { StripeElementsProps } from '@/types/payment';
 
 import type { StripeElementsOptions } from '@stripe/stripe-js';
 
-type BankAccountDetails = {
-  bank_name: string;
-  last4: string;
-  routing_number: string;
-};
+// Remove duplicate type definitions since we're importing from centralized types
 
-type StripeACHFormProps = {
-  onSuccess: (paymentMethod: { id: string; bank_account: BankAccountDetails }) => void;
-  onError: (error: Error) => void;
-  buttonText?: string;
-  isDefault?: boolean;
-  onDefaultChange?: (isDefault: boolean) => void;
-  customerName?: string;
-  customerEmail?: string;
-};
-
-const StripeACHForm: React.FC<StripeACHFormProps> = ({
+const StripeACHForm: React.FC<StripeElementsProps> = ({
   onSuccess,
   onError,
   buttonText = 'Save Bank Account',
@@ -160,7 +147,7 @@ const StripeACHForm: React.FC<StripeACHFormProps> = ({
   );
 };
 
-type StripeACHElementProps = StripeACHFormProps & {
+type StripeACHElementProps = StripeElementsProps & {
   clientSecret?: string;
   appearance?: any;
 };

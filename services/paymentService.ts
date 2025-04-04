@@ -3,28 +3,43 @@
  */
 
 import { getStripe } from '@/lib/stripe-client';
+import { PaymentMethod, PaymentResult, StripeCustomer } from '@/types';
 
-type PaymentMethod = {
-  id: string;
-  type: 'card' | 'bank_account';
-  name: string;
-  lastFour: string;
-  isDefault: boolean;
-  stripeTokenId: string;
-  expiryDate?: string;
-  cardType?: string;
-  bankName?: string;
-};
-
-type PaymentResult = {
-  success: boolean;
-  error?: string;
+// Extended PaymentResult for Stripe-specific responses
+interface StripePaymentResult extends PaymentResult {
   paymentIntentId?: string;
   status?: string;
-};
+}
+
+// Create or get a Stripe customer for the user
+export async function createOrGetStripeCustomer(userId: string, email: string, name: string): Promise<StripeCustomer> {
+  try {
+    const response = await fetch('/api/stripe/create-customer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        email,
+        name,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to create Stripe customer');
+    }
+    
+    const customerData: StripeCustomer = await response.json();
+    return customerData;
+  } catch (error) {
+    console.error('Error creating/getting Stripe customer:', error);
+    throw error;
+  }
+}
 
 // Process payment with a saved payment method
-export async function processPayment(amount: number, paymentMethodId: string): Promise<PaymentResult> {
+export async function processPayment(amount: number, paymentMethodId: string): Promise<StripePaymentResult> {
   try {
     // In a real implementation, this would call your backend API
     // which would then use Stripe to create a payment intent
@@ -61,13 +76,14 @@ export async function processPayment(amount: number, paymentMethodId: string): P
 }
 
 // Get saved payment methods for the current user
-export async function getPaymentMethods(): Promise<PaymentMethod[]> {
+export async function getPaymentMethods(customerId: string): Promise<PaymentMethod[]> {
   try {
     const response = await fetch('/api/stripe/get-payment-methods', {
-      method: 'GET',
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ customerId }),
     });
 
     if (!response.ok) {
@@ -110,7 +126,7 @@ export async function setDefaultPaymentMethod(paymentMethodId: string, type: 'ca
 }
 
 // Process a new card payment (for guest checkout)
-export async function processCardPayment(amount: number, cardElement: any): Promise<PaymentResult> {
+export async function processCardPayment(amount: number, cardElement: any): Promise<StripePaymentResult> {
   try {
     const stripe = await getStripe();
     if (!stripe) {
@@ -138,6 +154,111 @@ export async function processCardPayment(amount: number, cardElement: any): Prom
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown payment error',
+    };
+  }
+}
+
+// Create a card payment method and attach it to a customer
+export async function createCardPaymentMethod(
+  cardToken: string,
+  customerId: string,
+  isDefault: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch('/api/stripe/create-card-payment-method', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        cardToken,
+        customerId,
+        isDefault,
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to attach card to customer');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding card payment method:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// Create a bank account payment method and attach it to a customer
+export async function createBankPaymentMethod(
+  paymentMethodId: string,
+  customerId: string,
+  isDefault: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch('/api/stripe/create-bank-payment-method', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        paymentMethodId,
+        customerId,
+        isDefault,
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to attach bank account to customer');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding bank payment method:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// Process an ACH deposit
+export async function processACHDeposit(
+  amount: number,
+  bankAccountToken: string,
+  userId: string,
+  description: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch('/api/stripe/process-ach-deposit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount,
+        bankAccountToken,
+        userId,
+        description,
+      }),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to process ACH deposit');
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error processing ACH deposit:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }

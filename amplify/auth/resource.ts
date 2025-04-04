@@ -76,5 +76,10 @@ export const auth = defineAuth({
       mutable: true,
       required: false,
     },
+    // Custom attribute for Stripe customer ID
+    "custom:stripeCustomerId": {
+      mutable: true,
+      dataType: "String",
+    },
   },
 });
