@@ -53,8 +53,8 @@ const schema = a.schema({
       billingAddress: a.string(),
       orderDate: a.datetime().required(),
       items: a.string().required(), // JSON string containing order items
-      userId: a.id(),
-      user: a.belongsTo('User', 'userId'),
+      userId: a.string(),
+      // user: a.belongsTo('User', 'userId'),
     })
     .authorization((allow) => [
       allow.owner(),
@@ -64,8 +64,7 @@ const schema = a.schema({
   Wallet: a
     .model({
       balance: a.float().required().default(0),
-      userId: a.id(),
-      user: a.belongsTo('User', 'userId'),
+      userId: a.string(),
     })
     .authorization((allow) => [
       allow.owner(),
