@@ -2,7 +2,7 @@
  * Service for handling admin operations
  */
 import { generateClient } from 'aws-amplify/data';
-import { AdminGetUserCommand, AdminUpdateUserAttributesCommand, CognitoIdentityProviderClient,ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { AdminGetUserCommand, AdminUpdateUserAttributesCommand, CognitoIdentityProviderClient,ListUsersCommand,AdminResetUserPasswordCommand } from '@aws-sdk/client-cognito-identity-provider';
 import type { Schema } from '@/amplify/data/resource';
 import { WallpaperData } from '@/types/wallpaper';
 import { OrderData } from '@/types/order';
@@ -142,9 +142,6 @@ export async function updateUserAttributes(userId: string, attributes: Record<st
 // Reset user password
 export async function resetUserPassword(userId: string) {
   try {
-    // Use AdminResetUserPasswordCommand from Cognito
-    const { AdminResetUserPasswordCommand } = await import('@aws-sdk/client-cognito-identity-provider');
-    
     const command = new AdminResetUserPasswordCommand({
       UserPoolId: outputs.auth.user_pool_id,
       Username: userId,
