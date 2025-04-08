@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from './AuthContext';
@@ -10,22 +10,38 @@ interface AuthButtonsProps {
   closeMobileMenu?: () => void;
 }
 
-const AuthButtons = async ({ isMobile = false, closeMobileMenu }: AuthButtonsProps) => {
+const AuthButtons = ({ isMobile = false, closeMobileMenu }: AuthButtonsProps) => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const userDropdownRef = React.useRef<HTMLDivElement>(null);
+  const [isAdminUser, setIsAdminUser] = useState(false);
 
+  const handleClickOutside = (event: MouseEvent) => {
+    if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+      setShowUserDropdown(false);
+    }
+  };   
+  const userDropdownRef = React.useRef<HTMLDivElement>(null);
+  
   const toggleUserDropdown = () => {
     setShowUserDropdown(!showUserDropdown);
   };
-
+  
   // Handle logout
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
     await logout();
     setShowUserDropdown(false);
   };
-
+  
+  useEffect(() => {
+    const isAdmin = async () => {
+      if(user){
+        const isAdmin = await isUserAdmin(user.username || user.userId);
+        setIsAdminUser(isAdmin);
+      }
+    };
+    isAdmin();
+  }, [user]);
   // Show loading state
   if (isLoading) {
     return (
@@ -77,7 +93,7 @@ const AuthButtons = async ({ isMobile = false, closeMobileMenu }: AuthButtonsPro
                 <Link href="/account?tab=addresses" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">My Addresses</Link>
                 <Link href="/account?tab=wallet" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">My Wallet</Link>
                 <div className="border-t border-gray-100 my-1"></div>{
-                  (await isUserAdmin(user.username || user.userId)) && (
+                  (isAdminUser) && (
                     <Link href="/admin" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">Admin Panel</Link>
                   )
                 }
