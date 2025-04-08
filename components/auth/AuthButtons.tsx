@@ -4,13 +4,13 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from './AuthContext';
-
+import { isUserAdmin } from '@/services/adminService';
 interface AuthButtonsProps {
   isMobile?: boolean;
   closeMobileMenu?: () => void;
 }
 
-const AuthButtons = ({ isMobile = false, closeMobileMenu }: AuthButtonsProps) => {
+const AuthButtons = async ({ isMobile = false, closeMobileMenu }: AuthButtonsProps) => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const userDropdownRef = React.useRef<HTMLDivElement>(null);
@@ -76,7 +76,11 @@ const AuthButtons = ({ isMobile = false, closeMobileMenu }: AuthButtonsProps) =>
                 <Link href="/account?tab=orders" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">My Orders</Link>
                 <Link href="/account?tab=addresses" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">My Addresses</Link>
                 <Link href="/account?tab=wallet" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">My Wallet</Link>
-                <div className="border-t border-gray-100 my-1"></div>
+                <div className="border-t border-gray-100 my-1"></div>{
+                  (await isUserAdmin(user.username || user.userId)) && (
+                    <Link href="/admin" className="block px-4 py-2 text-sm hover:bg-gray-100 transition-colors duration-150">Admin Panel</Link>
+                  )
+                }
                 <button
                   onClick={handleLogout}
                   className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition-colors duration-150"

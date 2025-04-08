@@ -6,7 +6,9 @@ import Link from 'next/link';
 import WallpaperSimulation from '@/components/WallpaperSimulation';
 import { saveWallpaperData, addToCart } from '@/services/wallpaperService';
 import { useAuth } from '@/components/auth/AuthContext';
+import { useCart } from '@/components/cart/CartContext';
 import { toast } from 'react-hot-toast';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 // Helper function to calculate price based on selected size
 const calculatePrice = (size: string): number => {
@@ -59,6 +61,8 @@ function CustomProductContent() {
     }
   };
 
+  const { isLoading, setIsLoading, refreshCart } = useCart();
+
   const handleAddToCart = async () => {
     if (!imageUrl) {
       toast.error('Please select an image first!');
@@ -66,6 +70,9 @@ function CustomProductContent() {
     }
 
     try {
+      // Set loading state
+      setIsLoading(true);
+
       // Create wallpaper data object
       const wallpaperData = {
         imageData: imageUrl, // Store the image data (URL in this case)
@@ -94,12 +101,17 @@ function CustomProductContent() {
       };
 
       // Add to cart
-      addToCart(cartItem, user?.userId || '');
+      await addToCart(cartItem, user?.userId || '');
+
+      // Refresh cart to update cart count
+      await refreshCart();
 
       toast.success('Added to cart successfully!');
     } catch (error) {
       console.error('Error adding to cart:', error);
       toast.error('Failed to add to cart. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -113,7 +125,7 @@ function CustomProductContent() {
           <span className="mr-1">&larr;</span> Back to Image Creation
         </Link>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
         {/* Product Image */}
         <div className="bg-gray-100 aspect-square rounded-lg flex items-center justify-center shadow-sm">
@@ -126,7 +138,7 @@ function CustomProductContent() {
             </div>
           )}
         </div>
-        
+
         {/* Product Details */}
         <div>
           <span className="inline-block bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm mb-3 sm:mb-4">
@@ -135,11 +147,11 @@ function CustomProductContent() {
           <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">{primaryImagery}</h1>
           <p className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">$700.00</p>
           <p className="text-gray-600 text-sm sm:text-base mb-4 sm:mb-6">Your unique custom-generated wallpaper design, ready to transform your space.</p>
-          
+
           {/* Size Selection */}
           <div className="mb-4 sm:mb-6">
             <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Roll Size *</h3>
-            <select 
+            <select
               className="w-full p-2 border border-gray-300 rounded text-sm sm:text-base"
               value={selectedSize}
               onChange={(e) => setSelectedSize(e.target.value)}
@@ -151,37 +163,44 @@ function CustomProductContent() {
               <option value="1200l-42w">1200' l x 42' w: $1360</option>
             </select>
           </div>
-          
+
           {/* Quantity */}
           <div className="mb-5 sm:mb-6">
             <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Quantity</h3>
-            <input 
-              type="number" 
-              min="1" 
-              value={quantity} 
+            <input
+              type="number"
+              min="1"
+              value={quantity}
               onChange={handleQuantityChange}
               className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm sm:text-base"
             />
           </div>
-          
+
           {/* Add to Cart Button */}
-          <button 
+          <button
             onClick={handleAddToCart}
-            className="w-full bg-black text-white py-2.5 sm:py-3 rounded-md hover:bg-gray-800 transition-colors text-sm sm:text-base font-medium"
+            disabled={isLoading}
+            className="w-full bg-black text-white py-2.5 sm:py-3 rounded-md hover:bg-gray-800 transition-colors text-sm sm:text-base font-medium flex items-center justify-center"
           >
-            Add to Cart
-          </button>
-          
-          {/* Wallpaper Simulation */}
-          <div className="mt-6 sm:mt-8 border-t pt-4 sm:pt-6">
-            {imageUrl && (
-              <WallpaperSimulation 
-                imageUrl={imageUrl} 
-                onScaleChange={(scale) => console.log('Scale changed:', scale)}
-              />
+            {isLoading ? (
+              <>
+                <LoadingSpinner size="small" color="#ffffff" />
+                <span className="ml-2">Adding to Cart...</span>
+              </>
+            ) : (
+              'Add to Cart'
             )}
-          </div>
+          </button>
         </div>
+      </div>
+      {/* Wallpaper Simulation */}
+      <div className="mt-6 sm:mt-8 border-t pt-4 sm:pt-6">
+        {imageUrl && (
+          <WallpaperSimulation
+            imageUrl={imageUrl}
+            onScaleChange={(scale) => console.log('Scale changed:', scale)}
+          />
+        )}
       </div>
     </div>
   );

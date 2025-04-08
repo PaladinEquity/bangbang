@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-
-import { getDashboardStats} from '@/services/adminService';
-
+import { getDashboardStats } from '@/services/adminService';
 // Dashboard card component for metrics
 const DashboardCard = ({ title, value, icon, color }: { title: string; value: string | number; icon: string; color: string }) => (
   <div className="bg-white rounded-lg shadow p-6 flex items-center">

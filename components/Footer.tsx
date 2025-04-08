@@ -78,8 +78,8 @@ const Footer = () => {
             <Image
               src="/logo.png"
               alt="Killer Walls Logo"
-              width={80}
-              height={80}
+              width={50}
+              height={50}
               className="hover:opacity-80 transition-opacity duration-200"
             />
           </div>

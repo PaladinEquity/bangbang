@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { getCartItems, updateCartItemQuantity, removeCartItem, calculateCartTotal, createCartOrder } from '@/services/wallpaperService';
 import { processPayment, getPaymentMethods } from '@/services/paymentService';
 import { useAuth } from '@/components/auth/AuthContext';
+import { useCart } from '@/components/cart/CartContext';
 import { toast } from 'react-hot-toast';
 import { StripeCardElement } from '@/components/payment/StripeCardElement';
 import { PaymentMethodSelector } from '@/components/payment/PaymentMethodSelector';
@@ -26,6 +27,7 @@ function CartContent() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
   const { user } = useAuth();
+  const { refreshCart } = useCart();
   const router = useRouter();
   
   // Load user's saved payment methods
@@ -33,13 +35,19 @@ function CartContent() {
     const loadPaymentMethods = async () => {
       if (!user) return;
       try {
-        const methods = await getPaymentMethods(user.userId);
-        setPaymentMethods(methods);
+        // Get the Stripe customer ID from user attributes
+        const stripeCustomerId = user?.attributes?.['custom:stripeCustomerId'];
         
-        // Set default payment method if available
-        const defaultMethod = methods.find(method => method.isDefault);
-        if (defaultMethod) {
-          setSelectedPaymentMethod(defaultMethod.id || '');
+        // Only call getPaymentMethods if stripeCustomerId exists
+        if (stripeCustomerId) {
+          const methods = await getPaymentMethods(stripeCustomerId);
+          setPaymentMethods(methods);
+          
+          // Set default payment method if available
+          const defaultMethod = methods.find(method => method.isDefault);
+          if (defaultMethod) {
+            setSelectedPaymentMethod(defaultMethod.id || '');
+          }
         }
       } catch (error) {
         console.error('Error loading payment methods:', error);
@@ -134,8 +142,11 @@ function CartContent() {
     setIsProcessingPayment(true);
     
     try {
-      // Process the payment
-      const paymentResult = await processPayment(total, paymentMethodId);
+      // Get the Stripe customer ID from user attributes
+      const stripeCustomerId = user?.attributes?.['custom:stripeCustomerId'];
+      
+      // Process the payment with customer ID if available
+      const paymentResult = await processPayment(total, paymentMethodId, stripeCustomerId);
       
       if (!paymentResult.success) {
         throw new Error(paymentResult.error || 'Payment failed');
@@ -162,6 +173,9 @@ function CartContent() {
       );
       
       toast.success('Payment successful! Your order has been placed.');
+      
+      // Refresh cart context to update the cart badge in header
+      await refreshCart();
       
       // Redirect to order confirmation page
       router.push(`/account?tab=orders`);
@@ -277,7 +291,7 @@ function CartContent() {
                 <div key={item.id} className="p-6 border-b flex flex-col md:flex-row gap-4">
                   <div className="flex-shrink-0">
                     <img 
-                      src={item.imageUrl || ''} 
+                      src={item.imageData || ''} 
                       alt={item.name} 
                       className="w-24 h-24 object-cover rounded-md"
                     />
@@ -374,19 +388,40 @@ function CartContent() {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Select a payment method</label>
                           {paymentMethods.map((method) => (
-                            <div key={method.id} className="flex items-center mb-2">
+                            <div key={method.id} className="border rounded-lg p-3 mb-3 flex items-center">
                               <input
                                 type="radio"
                                 id={`payment-${method.id}`}
                                 name="paymentMethod"
-                                className="h-4 w-4 text-gray-800 focus:ring-0 border-gray-300"
+                                className="h-4 w-4 text-gray-800 focus:ring-0 border-gray-300 mr-3"
                                 checked={selectedPaymentMethod === method.id}
                                 onChange={() => setSelectedPaymentMethod(method.id)}
                                 disabled={isProcessingPayment}
                               />
-                              <label htmlFor={`payment-${method.id}`} className="ml-2 block text-sm text-gray-700">
-                                {method.name}
-                              </label>
+                              <div className="flex items-center flex-grow">
+                                {method.type === 'card' ? (
+                                  <>
+                                    <div className={`w-10 h-6 ${method.cardType === 'visa' ? 'bg-blue-600' : method.cardType === 'mastercard' ? 'bg-red-500' : method.cardType === 'amex' ? 'bg-blue-400' : 'bg-gray-500'} rounded mr-3`}></div>
+                                    <div>
+                                      <p className="font-medium">{(method?.cardType || '')?.charAt(0).toUpperCase() + (method.cardType?.slice(1) || '')} ending in {method.lastFour}</p>
+                                      {method.expiryDate && <p className="text-sm text-gray-500">Expires {method.expiryDate}</p>}
+                                    </div>
+                                  </>
+                                ) : method.type === 'bank_account' ? (
+                                  <>
+                                    <div className="w-10 h-6 bg-green-500 rounded mr-3"></div>
+                                    <div>
+                                      <p className="font-medium">{method.bankName || 'Bank Account'} ending in {method.lastFour}</p>
+                                      <p className="text-sm text-gray-500">ACH Direct Debit</p>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <p className="font-medium">{method.name}</p>
+                                )}
+                              </div>
+                              {method.isDefault && (
+                                <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">Default</span>
+                              )}
                             </div>
                           ))}
                         </div>

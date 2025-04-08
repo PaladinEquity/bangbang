@@ -3,19 +3,54 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getAllWallpapers } from '@/services/wallpaperService';
+import { getAllWallpapers, toggleWallpaperLike, hasUserLikedWallpaper, updateWallpaperRankingByCart } from '@/services/wallpaperService';
+import { useAuth } from '@/components/auth/AuthContext';
+import { toast } from 'react-hot-toast';
 
 export default function CuratedProducts() {
   const router = useRouter();
-  const [wallpapers, setWallpapers] = useState([]);
+  const { user } = useAuth();
+  const [wallpapers, setWallpapers] = useState([] as any[]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [likedWallpapers, setLikedWallpapers] = useState<Record<string, boolean>>({});
+  const [likeLoading, setLikeLoading] = useState<Record<string, boolean>>({});
   
   useEffect(() => {
     const fetchWallpapers = async () => {
       try {
         const data = await getAllWallpapers() as any;
-        setWallpapers(data);
+        // Sort wallpapers by ranking if available
+        const sortedData = [...data].sort((a, b) => {
+          // If both have rankings, sort by ranking (lower number = higher rank)
+          if (a.ranking !== null && b.ranking !== null) {
+            return a.ranking - b.ranking;
+          }
+          // If only one has ranking, prioritize the one with ranking
+          if (a.ranking !== null) return -1;
+          if (b.ranking !== null) return 1;
+          
+          // Otherwise sort by creation date (newest first) if available
+          if (a.createdAt && b.createdAt) {
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          }
+          return 0;
+        });
+        setWallpapers(sortedData);
+        
+        // Check which wallpapers the user has liked
+        if (user && user.userId) {
+          const likedStatus: Record<string, boolean> = {};
+          
+          for (const wallpaper of sortedData) {
+            if (wallpaper.id) {
+              const isLiked = await hasUserLikedWallpaper(wallpaper.id, user.userId);
+              likedStatus[wallpaper.id] = isLiked;
+            }
+          }
+          
+          setLikedWallpapers(likedStatus);
+        }
       } catch (error) {
         console.error('Error fetching wallpapers:', error);
       } finally {
@@ -24,7 +59,90 @@ export default function CuratedProducts() {
     };
     
     fetchWallpapers();
-  }, []);
+  }, [user]);
+  
+  // Handle like/unlike
+  const handleToggleLike = async (wallpaperId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent navigating to product page
+    
+    if (!user || !user.userId) {
+      toast.error('Please log in to like this wallpaper');
+      return;
+    }
+    
+    try {
+      setLikeLoading(prev => ({ ...prev, [wallpaperId]: true }));
+      
+      const success = await toggleWallpaperLike(wallpaperId, user.userId);
+      
+      if (success) {
+        setLikedWallpapers(prev => ({
+          ...prev,
+          [wallpaperId]: !prev[wallpaperId]
+        }));
+        
+        // Refresh the wallpapers to get updated rankings
+        const updatedWallpapers = await getAllWallpapers() as any;
+        const sortedData = [...updatedWallpapers].sort((a, b) => {
+          if (a.ranking !== null && b.ranking !== null) {
+            return a.ranking - b.ranking;
+          }
+          if (a.ranking !== null) return -1;
+          if (b.ranking !== null) return 1;
+          if (a.createdAt && b.createdAt) {
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          }
+          return 0;
+        });
+        setWallpapers(sortedData);
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      toast.error('Failed to update preference');
+    } finally {
+      setLikeLoading(prev => ({ ...prev, [wallpaperId]: false }));
+    }
+  };
+  
+  // Handle add to cart with ranking update
+  const handleAddToCart = async (wallpaper: any, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent navigating to product page
+    
+    if (!user || !user.userId) {
+      toast.error('Please log in to add items to your cart');
+      return;
+    }
+    
+    try {
+      // Here you would add the wallpaper to cart
+      // This is just a placeholder for the actual cart functionality
+      toast.success(`Added ${wallpaper.description || 'Custom Wallpaper'} to cart!`);
+      
+      // Update the wallpaper ranking when added to cart
+      if (wallpaper.id) {
+        await updateWallpaperRankingByCart(wallpaper.id, 1);
+        
+        // Refresh the wallpapers to get updated rankings
+        const updatedWallpapers = await getAllWallpapers() as any;
+        const sortedData = [...updatedWallpapers].sort((a, b) => {
+          if (a.ranking !== null && b.ranking !== null) {
+            return a.ranking - b.ranking;
+          }
+          if (a.ranking !== null) return -1;
+          if (b.ranking !== null) return 1;
+          if (a.createdAt && b.createdAt) {
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          }
+          return 0;
+        });
+        setWallpapers(sortedData);
+      }
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast.error('Failed to add to cart');
+    }
+  };
+
   
   // Extract unique categories from wallpapers
   // const categories = ['All', ...new Set(wallpapers.map(w => w.primaryImagery).filter(Boolean))];
@@ -73,6 +191,17 @@ export default function CuratedProducts() {
                 />
               )}
               <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded text-xs font-medium">{wallpaper.primaryImagery || 'Custom'}</div>
+              {/* Like Button */}
+              <button 
+                onClick={(e) => handleToggleLike(wallpaper.id, e)}
+                disabled={likeLoading[wallpaper.id]}
+                className={`absolute top-2 left-2 p-2 rounded-full ${likedWallpapers[wallpaper.id] ? 'bg-red-100 text-red-600' : 'bg-white text-gray-600'} hover:bg-opacity-80 transition-colors`}
+                aria-label={likedWallpapers[wallpaper.id] ? 'Unlike' : 'Like'}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill={likedWallpapers[wallpaper.id] ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={likedWallpapers[wallpaper.id] ? "0" : "2"}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </button>
               {wallpaper.userId && (
                 <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-2 text-xs">
                   <p className="font-medium">Created by: {wallpaper.userId}</p>
@@ -89,11 +218,7 @@ export default function CuratedProducts() {
                 <span className="font-bold">${wallpaper.price.toFixed(2)}</span>
                 <button 
                   className="bg-gray-800 text-white px-3 py-1 rounded text-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Here you would add the wallpaper to cart
-                    alert(`Added ${wallpaper.description || 'Custom Wallpaper'} to cart!`);
-                  }}
+                  onClick={(e) => handleAddToCart(wallpaper, e)}
                 >
                   Add to Cart
                 </button>

@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Update the user's wallet balance in the database
-    const client = generateClient<Schema>();
+    const client = generateClient<Schema>({authMode: 'userPool'});
     
     // Transaction model has been removed, so we're not creating a transaction record anymore
     // Instead, we'll just update the wallet balance directly

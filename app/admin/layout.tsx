@@ -1,25 +1,20 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState,useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthContext';
 import Link from 'next/link';
 import { Toaster } from 'react-hot-toast';
-import { Inter, Playfair_Display, Roboto_Mono } from 'next/font/google';
-import '@aws-amplify/ui-react/styles.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-const playfairDisplay = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair-display' });
-const robotoMono = Roboto_Mono({ subsets: ['latin'], variable: '--font-roboto-mono' });
+import { isUserAdmin } from '@/services/adminService';
 
-// Admin role check - this would be expanded based on your actual role implementation
-const isAdmin = (user: any) => {
-  // Check if user has admin role in attributes
-  if (!user || !user.attributes) return false;
+// Admin role check - now checks if user is in ADMINS group
+const isAdmin = async (user: any) => {
+  // Check if user exists
+  if (!user) return false;
   
-  // Check for custom:role attribute with value 'admin'
-  // return user.attributes['custom:role'] === 'admin';
-  return true;
+  // Check if user is in ADMINS group
+  return await isUserAdmin(user.username || user.userId);
 };
 
 export default function AdminLayout({
@@ -30,11 +25,26 @@ export default function AdminLayout({
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
+  const [isAdminUser, setIsAdminUser] = useState(false);
+
   useEffect(() => {
-    // Redirect non-admin users away from admin pages
-    if (!isLoading && (!isAuthenticated || !isAdmin(user))) {
-      router.push('/auth/login?redirect=/admin');
-    }
+    // Check if user is admin when user changes
+    const checkAdminStatus = async () => {
+      if (!isLoading && isAuthenticated && user) {
+        const adminStatus = await isAdmin(user);
+        setIsAdminUser(adminStatus);
+        
+        if (!adminStatus) {
+          // Redirect non-admin users away from admin pages
+          router.push('/auth/login?redirect=/admin');
+        }
+      } else if (!isLoading && !isAuthenticated) {
+        // Redirect unauthenticated users
+        router.push('/auth/login');
+      }
+    };
+    
+    checkAdminStatus();
   }, [isLoading, isAuthenticated, user, router]);
 
   // Show loading state while checking authentication
@@ -47,21 +57,21 @@ export default function AdminLayout({
   }
 
   // If not authenticated or not admin, don't render anything (will redirect)
-  if (!isAuthenticated || !isAdmin(user)) {
+  if (!isAuthenticated || !isAdminUser) {
     return null;
   }
 
   // This layout completely replaces the root layout for admin pages
-  // It doesn't include the default header and footer meant for normal users
+  // No Header or Footer components from the root layout will be rendered
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${playfairDisplay.variable} ${robotoMono.variable} font-sans`}>
+      <body className="bg-neutral-50">
         <Toaster position="top-center" />
         <div className="fixed top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-amber-500 z-50"></div>
         
         <div className="flex min-h-screen bg-gray-100">
           {/* Admin Sidebar */}
-          <div className="w-64 bg-white shadow-md">
+          <div className="w-64 bg-white shadow-md h-screen sticky top-0">
             <div className="p-4 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-purple-600">Admin Panel</h2>
             </div>

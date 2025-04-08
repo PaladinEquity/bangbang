@@ -5,13 +5,36 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '@/amplify/data/resource';
 import { WallpaperData } from '@/types/wallpaper';
 import { CartItem, OrderData } from '@/types/order';
+import { toast } from 'react-hot-toast';
 
 // Initialize the Amplify data client
-const client = generateClient<Schema>();
+const client = generateClient<Schema>({authMode: 'userPool'});
 
 // Save wallpaper data and return the wallpaper ID
 export async function saveWallpaperData(wallpaperData: WallpaperData): Promise<string> {
   try {
+    // Validate required fields
+    if (!wallpaperData.imageData) {
+      throw new Error('Wallpaper image data is required');
+    }
+    
+    if (!wallpaperData.price || wallpaperData.price <= 0) {
+      throw new Error('Wallpaper price must be greater than zero');
+    }
+    
+    // Check for duplicate wallpaper by imageData (if it's a URL)
+    if (wallpaperData.imageData.startsWith('http')) {
+      const existingWallpapers = await client.models.Wallpaper.list({
+        filter: { imageData: { eq: wallpaperData.imageData } }
+      });
+      
+      if (existingWallpapers && existingWallpapers.data && existingWallpapers.data.length > 0) {
+        // Return existing wallpaper ID instead of creating a duplicate
+        console.log('Wallpaper with this image URL already exists, returning existing ID');
+        return existingWallpapers.data[0].id;
+      }
+    }
+    
     // Save to Amplify DataStore
     const result = await client.models.Wallpaper.create({
       imageData: wallpaperData.imageData,
@@ -19,6 +42,7 @@ export async function saveWallpaperData(wallpaperData: WallpaperData): Promise<s
       primaryImagery: wallpaperData.primaryImagery,
       size: wallpaperData.size,
       price: wallpaperData.price,
+      ranking: wallpaperData.ranking || null, // Add ranking field with default null
       createdAt: new Date().toISOString(),
       userId: wallpaperData.userId
     });
@@ -44,6 +68,7 @@ export async function getAllWallpapers(): Promise<(WallpaperData & { userId?: st
         primaryImagery: item.primaryImagery || '',
         size: item.size || '',
         price: item.price || 0,
+        ranking: item?.ranking ? Number(item.ranking) : null,
         userId: item.userId || ''
       }));
     }
@@ -70,6 +95,7 @@ export async function getWallpaperById(wallpaperId: string): Promise<WallpaperDa
         primaryImagery: response.data.primaryImagery || '',
         size: response.data.size || '',
         price: response.data.price || 0,
+        ranking: response.data.ranking ? Number(response.data.ranking) : null,
         userId: response.data.userId || ''
       };
     }
@@ -84,6 +110,32 @@ export async function getWallpaperById(wallpaperId: string): Promise<WallpaperDa
 // Add item to cart
 export async function addToCart(item: CartItem, userId: string): Promise<void> {
   try {
+    // Validate required fields
+    if (!item.wallpaperId) {
+      throw new Error('Wallpaper ID is required');
+    }
+    
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+    
+    if (!item.options || !item.options.rollSize) {
+      throw new Error('Roll size is required');
+    }
+    
+    if (item.quantity <= 0) {
+      throw new Error('Quantity must be greater than zero');
+    }
+    
+    // Verify wallpaper exists before adding to cart
+    const wallpaper = await client.models.Wallpaper.get({
+      id: item.wallpaperId
+    });
+    
+    if (!wallpaper || !wallpaper.data) {
+      throw new Error('Wallpaper not found');
+    }
+    
     // Check if item already exists in cart with same wallpaperId and rollSize
     const existingItems = await client.models.CartItem.list({
       filter: {
@@ -95,13 +147,33 @@ export async function addToCart(item: CartItem, userId: string): Promise<void> {
       }
     });
     
+    // Get current cart count for this wallpaper to check limits
+    const userCartItems = await client.models.CartItem.list({
+      filter: { userId: { eq: userId } }
+    });
+    
+    const totalCartItems = userCartItems?.data?.length || 0;
+    if (totalCartItems >= 20 && existingItems?.data?.length === 0) {
+      throw new Error('Cart limit reached (maximum 20 different items)');
+    }
+    
     if (existingItems && existingItems.data && existingItems.data.length > 0) {
-      // Update quantity if item exists
+      // Update quantity if item exists, with a maximum limit
       const existingItem = existingItems.data[0];
+      const newQuantity = existingItem.quantity + item.quantity;
+      
+      // Set a reasonable maximum quantity per item (e.g., 10)
+      if (newQuantity > 10) {
+        throw new Error('Maximum quantity per item is 10');
+      }
+      
       await client.models.CartItem.update({
         id: existingItem.id,
-        quantity: existingItem.quantity + item.quantity
+        quantity: newQuantity
       });
+      
+      // Update wallpaper ranking when added to cart
+      await updateWallpaperRankingByCart(item.wallpaperId, item.quantity);
     } else {
       // Add new item
       await client.models.CartItem.create({
@@ -117,6 +189,9 @@ export async function addToCart(item: CartItem, userId: string): Promise<void> {
         wallpaperId: item.wallpaperId,
         userId: userId
       });
+      
+      // Update wallpaper ranking when added to cart
+      await updateWallpaperRankingByCart(item.wallpaperId, item.quantity);
     }
   } catch (error) {
     console.error('Error adding to cart:', error);
@@ -362,5 +437,170 @@ export async function updateOrderStatus(orderId: string, status: 'pending' | 'pr
   } catch (error) {
     console.error('Error updating order status:', error);
     return false;
+  }
+}
+
+// User Preference Functions
+
+// Toggle like/unlike for a wallpaper
+export async function toggleWallpaperLike(wallpaperId: string, userId: string): Promise<boolean> {
+  try {
+    // Validate inputs
+    if (!userId) {
+      console.error('User ID is required to like/unlike a wallpaper');
+      return false;
+    }
+    
+    if (!wallpaperId) {
+      console.error('Wallpaper ID is required');
+      return false;
+    }
+    
+    // Verify wallpaper exists
+    const wallpaper = await client.models.Wallpaper.get({
+      id: wallpaperId
+    });
+    
+    if (!wallpaper || !wallpaper.data) {
+      console.error('Wallpaper not found');
+      return false;
+    }
+
+    // Check if user already has a preference for this wallpaper
+    const existingPreference = await client.models.UserPreference.list({
+      filter: {
+        and: [
+          { wallpaperId: { eq: wallpaperId } },
+          { userId: { eq: userId } }
+        ]
+      }
+    });
+
+    let liked = true;
+    
+    // Implement rate limiting - check if user has made too many like/unlike actions recently
+    const recentPreferences = await client.models.UserPreference.list({
+      filter: {
+        userId: { eq: userId }
+      }
+    });
+    
+    // Get preferences updated in the last minute
+    const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
+    const recentActions = recentPreferences?.data?.filter(pref => 
+      pref.createdAt && pref.createdAt > oneMinuteAgo
+    ) || [];
+    
+    // Limit to 10 actions per minute to prevent abuse
+    if (recentActions.length > 10 && !existingPreference?.data?.length) {
+      console.error('Rate limit exceeded for like/unlike actions');
+      return false;
+    }
+    
+    // If preference exists, toggle it (one user can only toggle once per wallpaper)
+    if (existingPreference && existingPreference.data && existingPreference.data.length > 0) {
+      const preference = existingPreference.data[0];
+      liked = !preference.liked;
+      
+      // Update the preference
+      await client.models.UserPreference.update({
+        id: preference.id,
+        liked: liked
+      });
+    } else {
+      // Create new preference (default is liked=true)
+      await client.models.UserPreference.create({
+        userId: userId,
+        wallpaperId: wallpaperId,
+        liked: true,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    // Update wallpaper ranking based on like/unlike
+    await updateWallpaperRankingByLike(wallpaperId, liked);
+    
+    return true;
+  } catch (error) {
+    console.error('Error toggling wallpaper like:', error);
+    return false;
+  }
+}
+
+// Check if user has liked a wallpaper
+export async function hasUserLikedWallpaper(wallpaperId: string, userId: string): Promise<boolean> {
+  try {
+    if (!userId) return false;
+    
+    const preference = await client.models.UserPreference.list({
+      filter: {
+        and: [
+          { wallpaperId: { eq: wallpaperId } },
+          { userId: { eq: userId } },
+          { liked: { eq: true } }
+        ]
+      }
+    });
+    
+    return preference && preference.data && preference.data.length > 0;
+  } catch (error) {
+    console.error('Error checking if user liked wallpaper:', error);
+    return false;
+  }
+}
+
+// Update wallpaper ranking based on like/unlike
+async function updateWallpaperRankingByLike(wallpaperId: string, liked: boolean): Promise<void> {
+  try {
+    // Get current wallpaper
+    const wallpaper = await client.models.Wallpaper.get({
+      id: wallpaperId
+    });
+    
+    if (!wallpaper || !wallpaper.data) {
+      throw new Error('Wallpaper not found');
+    }
+    
+    // Get current ranking or default to a high number if null
+    const currentRanking = wallpaper.data.ranking !== null ? Number(wallpaper.data.ranking) : 1000;
+    
+    // Adjust ranking: decrease (improve) if liked, increase (worsen) if unliked
+    const newRanking = liked ? Math.max(1, currentRanking - 1) : currentRanking + 1;
+    
+    // Update the wallpaper ranking
+    await client.models.Wallpaper.update({
+      id: wallpaperId,
+      ranking: newRanking
+    });
+  } catch (error) {
+    console.error('Error updating wallpaper ranking by like:', error);
+  }
+}
+
+// Update wallpaper ranking when added to cart
+export async function updateWallpaperRankingByCart(wallpaperId: string, quantity: number): Promise<void> {
+  try {
+    // Get current wallpaper
+    const wallpaper = await client.models.Wallpaper.get({
+      id: wallpaperId
+    });
+    
+    if (!wallpaper || !wallpaper.data) {
+      throw new Error('Wallpaper not found');
+    }
+    
+    // Get current ranking or default to a high number if null
+    const currentRanking = wallpaper.data.ranking !== null ? Number(wallpaper.data.ranking) : 1000;
+    
+    // Improve ranking based on quantity added to cart (more items = better ranking)
+    const newRanking = Math.max(1, currentRanking - quantity);
+    
+    // Update the wallpaper ranking
+    await client.models.Wallpaper.update({
+      id: wallpaperId,
+      ranking: newRanking
+    });
+  } catch (error) {
+    console.error('Error updating wallpaper ranking by cart:', error);
   }
 }

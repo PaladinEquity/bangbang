@@ -2,6 +2,9 @@
  * UI component related type definitions
  */
 
+// Import wallpaper UI types from dedicated file
+import { WallpaperDisplayData } from './wallpaperUI';
+
 export interface ColorPickerProps {
   selectedColor: string;
   onColorChange: (color: string) => void;
@@ -40,54 +43,10 @@ export interface PageTransitionProps {
   children: React.ReactNode;
 }
 
-export interface ImageSelectorProps {
-  onImageSelect: (imageUrl: string) => void;
-  selectedImage?: string;
-  images: string[] | ImageUrlMap;
-}
-
-export interface ImageUrlMap {
-  [key: string]: string;
-}
-
-export interface WallpaperSimulationProps {
-  wallpaperUrl: string;
-  roomType?: 'living' | 'bedroom' | 'office';
-}
-
 export interface LoadingSpinnerProps {
   size?: 'small' | 'medium' | 'large';
   color?: string;
 }
 
-export interface Wallpaper {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-  category: string;
-  tags: string[];
-  dimensions?: {
-    width: number;
-    height: number;
-  };
-  rating?: number;
-  reviews?: number;
-}
-
-export type WallpaperDisplayData = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-  category: string;
-  tags: string[];
-  dimensions?: {
-    width: number;
-    height: number;
-  };
-  rating?: number;
-  reviews?: number;
-};
+// Re-export WallpaperDisplayData for backward compatibility
+export type { WallpaperDisplayData };

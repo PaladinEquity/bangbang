@@ -3,25 +3,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { getDashboardStats, getMonthlyRevenue, getAllWallpapersWithRanking, getAllOrders } from '@/services/adminService';
-
-// Analytics data type
-type AnalyticsData = {
-  salesOverTime: { month: string; sales: number }[];
-  topProducts: { name: string; sales: number; revenue: number }[];
-  userStats: {
-    total: number;
-    newThisMonth: number;
-    activeThisMonth: number;
-    conversionRate: string;
-  };
-  orderStats: {
-    total: number;
-    pending: number;
-    processing: number;
-    shipped: number;
-    delivered: number;
-  };
-};
+import { AnalyticsData, BarChartProps, StatCardProps, ProgressBarProps } from '@/types';
 
 // Default empty analytics data
 const emptyAnalytics: AnalyticsData = {
@@ -31,7 +13,7 @@ const emptyAnalytics: AnalyticsData = {
     total: 0,
     newThisMonth: 0,
     activeThisMonth: 0,
-    conversionRate: "0",
+    conversionRate: 0,
   },
   orderStats: {
     total: 0,
@@ -44,7 +26,7 @@ const emptyAnalytics: AnalyticsData = {
 
 
 // Simple bar chart component
-const BarChart = ({ data, xKey, yKey, title }: { data: any[]; xKey: string; yKey: string; title: string }) => {
+const BarChart = ({ data, xKey, yKey, title }: BarChartProps) => {
   const maxValue = Math.max(...data.map(item => item[yKey]));
   
   return (
@@ -69,7 +51,7 @@ const BarChart = ({ data, xKey, yKey, title }: { data: any[]; xKey: string; yKey
 };
 
 // Stat card component
-const StatCard = ({ title, value, change, icon }: { title: string; value: string | number; change?: string; icon: string }) => (
+const StatCard = ({ title, value, change, icon }: StatCardProps) => (
   <div className="bg-white rounded-lg shadow p-6">
     <div className="flex justify-between items-start">
       <div>
@@ -77,7 +59,7 @@ const StatCard = ({ title, value, change, icon }: { title: string; value: string
         <p className="text-2xl font-semibold mt-1">{value}</p>
         {change && (
           <p className="text-xs mt-1">
-            <span className={change.startsWith('+') ? 'text-green-600' : 'text-red-600'}>{change}</span> from last month
+            <span className={change.startsWith('+') ? 'text-green-600' : 'text-red-600'}>{change}</span> from previous period
           </p>
         )}
       </div>
@@ -87,7 +69,7 @@ const StatCard = ({ title, value, change, icon }: { title: string; value: string
 );
 
 // Progress bar component
-const ProgressBar = ({ label, value, max, color }: { label: string; value: number; max: number; color: string }) => {
+const ProgressBar = ({ label, value, max, color }: ProgressBarProps) => {
   const percentage = (value / max) * 100;
   return (
     <div className="mb-4">
@@ -113,7 +95,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     const fetchAnalyticsData = async () => {
       try {
-        setIsLoading(true);
+        setIsLoading(true); // Set loading state when time range changes
         
         // Fetch dashboard stats
         const dashboardStats = await getDashboardStats();
@@ -131,23 +113,115 @@ export default function AnalyticsPage() {
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const salesOverTime = [];
         
-        // Get current year
-        const currentYear = new Date().getFullYear();
+        // Get current date information
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const currentMonth = currentDate.getMonth();
         
-        // Create sales data for each month
-        for (let i = 0; i < 12; i++) {
-          const monthKey = `${currentYear}-${i + 1}`;
+        // Filter orders based on selected time range
+        const filteredOrders = orders.orders.filter(order => {
+          if (!order.orderDate) return false;
+          
+          const orderDate = new Date(order.orderDate);
+          const timeDiff = currentDate.getTime() - orderDate.getTime();
+          const daysDiff = timeDiff / (1000 * 3600 * 24);
+          
+          switch (timeRange) {
+            case '30days':
+              return daysDiff <= 30;
+            case '3months':
+              return daysDiff <= 90;
+            case '6months':
+              return daysDiff <= 180;
+            case 'year':
+              return daysDiff <= 365;
+            default:
+              return true;
+          }
+        });
+        
+        // // Filter orders for previous period (for percentage change calculations)
+        // const previousPeriodOrders = orders.orders.filter(order => {
+        //   if (!order.orderDate) return false;
+          
+        //   const orderDate = new Date(order.orderDate);
+        //   const timeDiff = currentDate.getTime() - orderDate.getTime();
+        //   const daysDiff = timeDiff / (1000 * 3600 * 24);
+          
+        //   switch (timeRange) {
+        //     case '30days':
+        //       return daysDiff > 30 && daysDiff <= 60; // Previous 30 days
+        //     case '3months':
+        //       return daysDiff > 90 && daysDiff <= 180; // Previous 3 months
+        //     case '6months':
+        //       return daysDiff > 180 && daysDiff <= 360; // Previous 6 months
+        //     case 'year':
+        //       return daysDiff > 365 && daysDiff <= 730; // Previous year
+        //     default:
+        //       return false;
+        //   }
+        // });
+        
+        // Filter orders for previous period (for percentage change calculations)
+        const previousPeriodOrders = orders.orders.filter(order => {
+          if (!order.orderDate) return false;
+          
+          const orderDate = new Date(order.orderDate);
+          const timeDiff = currentDate.getTime() - orderDate.getTime();
+          const daysDiff = timeDiff / (1000 * 3600 * 24);
+          
+          switch (timeRange) {
+            case '30days':
+              return daysDiff > 30 && daysDiff <= 60; // Previous 30 days
+            case '3months':
+              return daysDiff > 90 && daysDiff <= 180; // Previous 3 months
+            case '6months':
+              return daysDiff > 180 && daysDiff <= 360; // Previous 6 months
+            case 'year':
+              return daysDiff > 365 && daysDiff <= 730; // Previous year
+            default:
+              return false;
+          }
+        });
+        
+        // Determine how many months to show based on time range
+        let monthsToShow = 12;
+        switch (timeRange) {
+          case '30days':
+            monthsToShow = 1;
+            break;
+          case '3months':
+            monthsToShow = 3;
+            break;
+          case '6months':
+            monthsToShow = 6;
+            break;
+          case 'year':
+            monthsToShow = 12;
+            break;
+        }
+        
+        // Create sales data for each month in the selected range
+        for (let i = 0; i < monthsToShow; i++) {
+          // Calculate the month index, handling wrapping to previous year
+          const monthIndex = (currentMonth - i + 12) % 12;
+          const yearOffset = Math.floor((currentMonth - i) / 12);
+          const year = currentYear - yearOffset;
+          
+          const monthKey = `${year}-${monthIndex + 1}`;
           const sales = monthlyRevenue[monthKey] || 0;
-          salesOverTime.push({
-            month: monthNames[i],
+          
+          // Add in reverse order so most recent month is last (rightmost on chart)
+          salesOverTime.unshift({
+            month: monthNames[monthIndex],
             sales: sales
           });
         }
         
-        // Calculate top products based on orders
+        // Calculate top products based on filtered orders
         const productSales: Record<string, { count: number; revenue: number }> = {};
         
-        orders.forEach(order => {
+        filteredOrders.forEach(order => {
           if (order.items && order.paymentStatus === 'paid') {
             try {
               const items = JSON.parse(order.items);
@@ -174,24 +248,49 @@ export default function AnalyticsPage() {
           .sort((a, b) => b.sales - a.sales)
           .slice(0, 5);
         
-        // Calculate order stats
+        // Calculate order stats based on filtered orders
         const orderStats = {
-          total: orders.length,
-          pending: orders.filter(o => o.status === 'pending').length,
-          processing: orders.filter(o => o.status === 'processing').length,
-          shipped: orders.filter(o => o.status === 'shipped').length,
-          delivered: orders.filter(o => o.status === 'delivered').length,
+          total: filteredOrders.length,
+          pending: filteredOrders.filter(o => o.status === 'pending').length,
+          processing: filteredOrders.filter(o => o.status === 'processing').length,
+          shipped: filteredOrders.filter(o => o.status === 'shipped').length,
+          delivered: filteredOrders.filter(o => o.status === 'delivered').length,
         };
+        
+        // Calculate user stats based on time range
+        const totalUsers = dashboardStats.totalUsers;
+        let newUsersRatio = 0.15; // Default estimate
+        let activeUsersRatio = 0.65; // Default estimate
+        
+        // Adjust ratios based on time range
+        switch (timeRange) {
+          case '30days':
+            newUsersRatio = 0.05;
+            activeUsersRatio = 0.40;
+            break;
+          case '3months':
+            newUsersRatio = 0.10;
+            activeUsersRatio = 0.50;
+            break;
+          case '6months':
+            newUsersRatio = 0.15;
+            activeUsersRatio = 0.65;
+            break;
+          case 'year':
+            newUsersRatio = 0.25;
+            activeUsersRatio = 0.75;
+            break;
+        }
         
         // Set analytics data
         setAnalytics({
           salesOverTime: salesOverTime,
           topProducts: topProducts,
           userStats: {
-            total: dashboardStats.totalUsers,
-            newThisMonth: Math.round(dashboardStats.totalUsers * 0.15), // Estimate for demo
-            activeThisMonth: Math.round(dashboardStats.totalUsers * 0.65), // Estimate for demo
-            conversionRate: ((orders.length / dashboardStats.totalUsers) * 100).toFixed(1)
+            total: totalUsers,
+            newThisMonth: Math.round(totalUsers * newUsersRatio),
+            activeThisMonth: Math.round(totalUsers * activeUsersRatio),
+            conversionRate: Number(((filteredOrders.length / totalUsers) * 100).toFixed(1))
           },
           orderStats: orderStats
         });
@@ -222,6 +321,7 @@ export default function AnalyticsPage() {
           <p className="text-gray-600 mt-1">Track your store's performance</p>
         </div>
         <div>
+          <p className="text-sm text-gray-600 mb-1">Time Range</p>
           <select
             className="p-2 border border-gray-300 rounded-md"
             value={timeRange}

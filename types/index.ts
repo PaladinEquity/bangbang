@@ -5,3 +5,5 @@ export * from './order';
 export * from './ui';
 export * from './wallet';
 export * from './wallpaper';
+export * from './wallpaperUI';
+export * from './analytics';

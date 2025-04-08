@@ -9,8 +9,7 @@ import { getStripe } from '@/lib/stripe-client';
 import { PaymentMethodSelector } from '../payment/PaymentMethodSelector';
 import { PaymentMethod, BankAccount, StripeCustomer } from '@/types/payment';
 import { Transaction, WalletData } from '@/types/wallet';
-import { updateUserAttributes } from 'aws-amplify/auth';
-import { createOrGetStripeCustomer as getStripeCustomer, createCardPaymentMethod, createBankPaymentMethod, processACHDeposit,setDefaultPaymentMethod,getPaymentMethods, } from '@/services/paymentService';
+import { createOrGetStripeCustomer as getStripeCustomer, createCardPaymentMethod, createBankPaymentMethod, processACHDeposit, setDefaultPaymentMethod, getPaymentMethods, updateUserStripeCustomerId } from '@/services/paymentService';
 
 export default function MyWalletContent() {
   const { user } = useAuth();
@@ -89,14 +88,14 @@ export default function MyWalletContent() {
       // Save the Stripe customer ID to the user's custom attribute
       if (customerData.customerId) {
         try {
-          // Update the user's custom attribute with the Stripe customer ID
-          await updateUserAttributes({
-            userAttributes: {
-              'custom:stripeCustomerId': customerData.customerId
-            }
-          });
+          // Use the service to update the user's custom attribute with the Stripe customer ID
+          const result = await updateUserStripeCustomerId(customerData.customerId);
           
-          console.log('Stripe customer ID saved to user attributes');
+          if (result.success) {
+            console.log('Stripe customer ID saved to user attributes');
+          } else {
+            console.error('Error saving Stripe customer ID to user attributes:', result.error);
+          }
         } catch (attrError) {
           console.error('Error saving Stripe customer ID to user attributes:', attrError);
           // Continue with the flow even if saving to attributes fails

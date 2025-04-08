@@ -1,324 +1,141 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import { getAllUsers, updateUserRole, resetUserPassword } from '@/services/adminService';
+import { getAllUsers, updateUserRole, resetUserPassword, updateUserAttributes, createUser, getUsersCount } from '@/services/adminService';
 
-// User type definition
-type User = {
-  username: string;
-  userId: string;
-  email?: string;
-  name?: string;
-  status: string;
-  createdAt: string;
-  attributes: {
-    email?: string;
-    given_name?: string;
-    family_name?: string;
-    'custom:role'?: string;
-    [key: string]: any;
-  };
-};
+// Import types
+import { AdminUser } from '@/types/admin';
 
-// User attribute edit modal type
-type EditAttributeModalProps = {
-  user: User | null;
-  onClose: () => void;
-  onSave: (userId: string, attributes: Record<string, string>) => Promise<void>;
-};
-
-// Role change modal type
-type ChangeRoleModalProps = {
-  user: User | null;
-  onClose: () => void;
-  onSave: (userId: string, role: 'admin' | 'user') => Promise<void>;
-};
-
-// Reset password confirmation modal type
-type ResetPasswordModalProps = {
-  user: User | null;
-  onClose: () => void;
-  onConfirm: (userId: string) => Promise<void>;
-};
-
-// User status badge component
-const StatusBadge = ({ status }: { status: string }) => {
-  const statusStyles = {
-    CONFIRMED: 'bg-green-100 text-green-800',
-    UNCONFIRMED: 'bg-yellow-100 text-yellow-800',
-    ARCHIVED: 'bg-gray-100 text-gray-800',
-    COMPROMISED: 'bg-red-100 text-red-800',
-    UNKNOWN: 'bg-gray-100 text-gray-800',
-    RESET_REQUIRED: 'bg-blue-100 text-blue-800',
-    FORCE_CHANGE_PASSWORD: 'bg-blue-100 text-blue-800',
-    DISABLED: 'bg-red-100 text-red-800',
-  };
-
-  const style = statusStyles[status as keyof typeof statusStyles] || statusStyles.UNKNOWN;
-
-  return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${style}`}>
-      {status.replace('_', ' ')}
-    </span>
-  );
-};
-
-// Role badge component
-const RoleBadge = ({ role }: { role: string }) => {
-  const roleStyles = {
-    admin: 'bg-purple-100 text-purple-800',
-    user: 'bg-blue-100 text-blue-800',
-    editor: 'bg-indigo-100 text-indigo-800',
-  };
-
-  const style = roleStyles[role as keyof typeof roleStyles] || roleStyles.user;
-
-  return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${style}`}>
-      {role.charAt(0).toUpperCase() + role.slice(1)}
-    </span>
-  );
-};
-
-// Edit User Attributes Modal
-const EditAttributeModal = ({ user, onClose, onSave }: EditAttributeModalProps) => {
-  const [attributes, setAttributes] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    if (user && user.attributes) {
-      // Extract editable attributes
-      const editableAttrs: Record<string, string> = {};
-      Object.entries(user.attributes).forEach(([key, value]) => {
-        // Skip role attribute as it's handled separately
-        if (key !== 'custom:role' && value) {
-          editableAttrs[key] = value;
-        }
-      });
-      setAttributes(editableAttrs);
-    }
-  }, [user]);
-
-  const handleChange = (key: string, value: string) => {
-    setAttributes(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    
-    setIsLoading(true);
-    try {
-      await onSave(user.userId, attributes);
-      onClose();
-    } catch (error) {
-      console.error('Error saving attributes:', error);
-      toast.error('Failed to update user attributes');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (!user) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4">Edit User Attributes</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            {Object.entries(attributes).map(([key, value]) => (
-              <div key={key}>
-                <label className="block text-sm font-medium text-gray-700">
-                  {key.replace('custom:', '')}
-                </label>
-                <input
-                  type="text"
-                  value={value}
-                  onChange={(e) => handleChange(key, e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-                />
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
-            >
-              {isLoading ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// Change Role Modal
-const ChangeRoleModal = ({ user, onClose, onSave }: ChangeRoleModalProps) => {
-  const [role, setRole] = useState<'admin' | 'user'>('user');
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    if (user && user.attributes && user.attributes['custom:role']) {
-      setRole(user.attributes['custom:role'] as 'admin' | 'user');
-    }
-  }, [user]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    
-    setIsLoading(true);
-    try {
-      await onSave(user.userId, role);
-      onClose();
-    } catch (error) {
-      console.error('Error changing role:', error);
-      toast.error('Failed to update user role');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (!user) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4">Change User Role</h2>
-        <form onSubmit={handleSubmit}>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Role
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'admin' | 'user')}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-            >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-          <div className="mt-6 flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
-            >
-              {isLoading ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// Reset Password Modal
-const ResetPasswordModal = ({ user, onClose, onConfirm }: ResetPasswordModalProps) => {
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleConfirm = async () => {
-    if (!user) return;
-    
-    setIsLoading(true);
-    try {
-      await onConfirm(user.userId);
-      onClose();
-    } catch (error) {
-      console.error('Error resetting password:', error);
-      toast.error('Failed to reset user password');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (!user) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4">Reset User Password</h2>
-        <p className="mb-4 text-gray-600">
-          Are you sure you want to reset the password for {user.email || user.username}? 
-          The user will receive an email with instructions to set a new password.
-        </p>
-        <div className="flex justify-end space-x-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={isLoading}
-            className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-          >
-            {isLoading ? 'Processing...' : 'Reset Password'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+// Import components
+import StatusBadge from '@/components/admin/StatusBadge';
+import RoleBadge from '@/components/admin/RoleBadge';
+import EditAttributeModal from '@/components/admin/EditAttributeModal';
+import ChangeRoleModal from '@/components/admin/ChangeRoleModal';
+import ResetPasswordModal from '@/components/admin/ResetPasswordModal';
+import AddUserModal from '@/components/admin/AddUserModal';
+import ActionMenu from '@/components/admin/ActionMenu';
+import PaginationControls from '@/components/admin/PaginationControls';
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [nextToken, setNextToken] = useState<string | null>(null);
+  const [prevTokens, setPrevTokens] = useState<string[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalItems, setTotalItems] = useState(0);
+  const usersPerPage = 10;
 
-  // Fetch users on component mount
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setIsLoading(true);
-        const usersData = await getAllUsers();
-        setUsers(usersData);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        toast.error('Failed to load users');
-      } finally {
-        setIsLoading(false);
+  // Function to fetch users with pagination and filters
+  const fetchUsers = async (token: string | null = null, isNewSearch: boolean = false) => {
+    try {
+      setIsLoading(true);
+      
+      // Prepare filters for the API call
+      const filters: any = {};
+      
+      if (statusFilter !== 'all') {
+        filters.status = statusFilter;
       }
-    };
+      
+      if (roleFilter !== 'all') {
+        filters.role = roleFilter;
+      }
+      
+      // Call the API with pagination parameters
+      const result = await getAllUsers({
+        filters,
+        limit: usersPerPage,
+        nextToken: token || undefined,
+        searchTerm: searchTerm.length > 0 ? searchTerm : undefined
+      });
+      
+      // If this is a new search/filter, reset pagination state and get total count
+      if (isNewSearch) {
+        setUsers(result.users || []);
+        setPrevTokens([]);
+        setNextToken(result.nextToken);
+        setCurrentPage(1);
+        
+        // Get total count of users that match the filters
+        try {
+          const count = await getUsersCount(filters);
+          setTotalItems(count);
+        } catch (countError) {
+          console.error('Error fetching users count:', countError);
+        }
+      } else {
+        setUsers(result.users || []);
+        setNextToken(result.nextToken);
+      }
+      
+      // Update hasMore flag
+      setHasMore(!!result.nextToken);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast.error('Failed to load users');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Function to handle next page
+  const handleNextPage = () => {
+    if (nextToken) {
+      // Save current token to prevTokens for back navigation
+      setPrevTokens([...prevTokens, nextToken]);
+      fetchUsers(nextToken);
+      setCurrentPage(currentPage + 1);
+    }
+  };
+  
+  // Function to handle previous page
+  const handlePrevPage = () => {
+    if (prevTokens.length > 0) {
+      // Get the previous token
+      const newPrevTokens = [...prevTokens];
+      const prevToken = newPrevTokens.pop();
+      setPrevTokens(newPrevTokens);
+      
+      // If we're going back to the first page, use null as token
+      fetchUsers(newPrevTokens.length > 0 ? newPrevTokens[newPrevTokens.length - 1] : null);
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
-    fetchUsers();
+  // Initial fetch
+  useEffect(() => {
+    fetchUsers(null, true);
   }, []);
+  
+  // Handle filter changes
+  useEffect(() => {
+    fetchUsers(null, true);
+  }, [statusFilter, roleFilter]);
+  
+  // Handle search with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchUsers(null, true);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Handle user attribute update
   const handleUpdateAttributes = async (userId: string, attributes: Record<string, string>) => {
     try {
-      // In a real implementation, you would call an API to update user attributes
-      // For now, just show a success message
+      // Call the API to update user attributes
+      await updateUserAttributes(userId, attributes);
       toast.success('User attributes updated successfully');
       
       // Update the user in the local state
@@ -338,17 +155,22 @@ export default function UsersPage() {
   // Handle user role change
   const handleRoleChange = async (userId: string, role: 'admin' | 'user') => {
     try {
+      // Update user role by managing group membership
       await updateUserRole(userId, role);
+      
       toast.success(`User role updated to ${role}`);
       
-      // Update the user in the local state
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.userId === userId 
-            ? { ...user, attributes: { ...user.attributes, 'custom:role': role } }
-            : user
-        )
-      );
+      // Refresh the users list to get updated group information
+      const usersData = await getAllUsers({
+        filters: {
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          role: roleFilter !== 'all' ? roleFilter : undefined
+        },
+        limit: usersPerPage,
+        searchTerm: searchTerm.length > 0 ? searchTerm : undefined
+      });
+      setUsers(usersData.users || []);
+      setNextToken(usersData.nextToken);
     } catch (error) {
       console.error('Error updating user role:', error);
       throw error;
@@ -366,6 +188,35 @@ export default function UsersPage() {
     }
   };
 
+  // Handle user creation
+  const handleCreateUser = async (userData: {
+    username: string;
+    email: string;
+    temporaryPassword: string;
+    userAttributes: Record<string, string>;
+  }) => {
+    try {
+      await createUser(userData);
+      
+      // Refresh the users list to include the new user
+      const usersData = await getAllUsers({
+        filters: {
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          role: roleFilter !== 'all' ? roleFilter : undefined
+        },
+        limit: usersPerPage,
+        searchTerm: searchTerm.length > 0 ? searchTerm : undefined
+      });
+      setUsers(usersData.users || []);
+      setNextToken(usersData.nextToken);
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+  };
+
   // Filter users based on search term and filters
   const filteredUsers = users.filter(user => {
     const userName = user.name || user.attributes?.given_name || user.username || '';
@@ -376,7 +227,7 @@ export default function UsersPage() {
       userEmail.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-    const matchesRole = roleFilter === 'all' || user.attributes?.['custom:role'] === roleFilter;
+    const matchesRole = roleFilter === 'all' || (roleFilter === 'admin' ? user.isAdmin : !user.isAdmin);
     
     return matchesSearch && matchesStatus && matchesRole;
   });
@@ -385,7 +236,7 @@ export default function UsersPage() {
   const statusOptions = ['all', ...Array.from(new Set(users.map(user => user.status)))];
   
   // Get unique role values for filter
-  const roleOptions = ['all', ...Array.from(new Set(users.map(user => user.attributes?.['custom:role'] || 'user')))];
+  const roleOptions = ['all', 'admin', 'user'];
   
   // Format date
   const formatDate = (dateString: string) => {
@@ -398,19 +249,53 @@ export default function UsersPage() {
 
   // Handle user deletion
   const handleDeleteUser = (userId: string) => {
-    // In a real application, call API to delete user
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      setUsers(users.filter(user => user.userId !== userId));
-    }
+    // Show a toast confirmation instead of using window.confirm
+    toast.custom(
+      (t) => (
+        <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex flex-col`}>
+          <div className="p-4">
+            <div className="flex items-start">
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-gray-900">Delete User</p>
+                <p className="mt-1 text-sm text-gray-500">Are you sure you want to delete this user? This action cannot be undone.</p>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-gray-200 p-3 flex justify-end space-x-2">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                // In a real application, call API to delete user
+                setUsers(users.filter(user => user.userId !== userId));
+                toast.dismiss(t.id);
+                toast.success('User deleted successfully');
+              }}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium text-white transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ),
+      { duration: 5000 }
+    );
   };
 
   return (
     <div>
       <div className="mb-8 flex justify-between items-center">
         <h1 className="text-2xl font-bold">User Management</h1>
-        <Link href="/admin/users/create" className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-700">
+        <button
+          onClick={() => setShowAddUserModal(true)}
+          className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-700"
+        >
           Add New User
-        </Link>
+        </button>
       </div>
 
       {/* Filters and search */}
@@ -507,41 +392,27 @@ export default function UsersPage() {
                     <StatusBadge status={user.status} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <RoleBadge role={user.attributes?.['custom:role'] || 'user'} />
+                    <RoleBadge role={user.isAdmin ? 'admin' : 'user'} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatDate(user.createdAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end space-x-2">
-                      <button 
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowEditModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowRoleModal(true);
-                        }}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        Role
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowResetModal(true);
-                        }}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Reset
-                      </button>
-                    </div>
+                    <ActionMenu 
+                      user={user}
+                      onEdit={() => {
+                        setSelectedUser(user);
+                        setShowEditModal(true);
+                      }}
+                      onChangeRole={() => {
+                        setSelectedUser(user);
+                        setShowRoleModal(true);
+                      }}
+                      onResetPassword={() => {
+                        setSelectedUser(user);
+                        setShowResetModal(true);
+                      }}
+                    />
                   </td>
                 </tr>
               ))}
@@ -549,6 +420,18 @@ export default function UsersPage() {
           </table>
         )}
       </div>
+
+      {/* Pagination controls */}
+      {!isLoading && filteredUsers.length > 0 && (
+        <PaginationControls
+          currentPage={currentPage}
+          hasMore={hasMore}
+          isLoading={isLoading}
+          onPrevPage={handlePrevPage}
+          onNextPage={handleNextPage}
+          totalItems={totalItems}
+        />
+      )}
 
       {/* Modals */}
       {showEditModal && (
@@ -572,6 +455,13 @@ export default function UsersPage() {
           user={selectedUser} 
           onClose={() => setShowResetModal(false)} 
           onConfirm={handleResetPassword} 
+        />
+      )}
+
+      {showAddUserModal && (
+        <AddUserModal
+          onClose={() => setShowAddUserModal(false)}
+          onSave={handleCreateUser}
         />
       )}
     </div>

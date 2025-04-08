@@ -39,7 +39,7 @@ export async function createOrGetStripeCustomer(userId: string, email: string, n
 }
 
 // Process payment with a saved payment method
-export async function processPayment(amount: number, paymentMethodId: string): Promise<StripePaymentResult> {
+export async function processPayment(amount: number, paymentMethodId: string, customerId?: string): Promise<StripePaymentResult> {
   try {
     // In a real implementation, this would call your backend API
     // which would then use Stripe to create a payment intent
@@ -52,6 +52,7 @@ export async function processPayment(amount: number, paymentMethodId: string): P
         amount,
         paymentMethodId,
         currency: 'usd',
+        customerId, // Include the customer ID if provided
       }),
     });
 
@@ -78,6 +79,7 @@ export async function processPayment(amount: number, paymentMethodId: string): P
 // Get saved payment methods for the current user
 export async function getPaymentMethods(customerId: string): Promise<PaymentMethod[]> {
   try {
+    console.log("-------",customerId);
     const response = await fetch('/api/stripe/get-payment-methods', {
       method: 'POST',
       headers: {
@@ -165,6 +167,37 @@ export async function createCardPaymentMethod(
   isDefault: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Validate inputs
+    if (!cardToken) {
+      throw new Error('Card token is required');
+    }
+    
+    if (!customerId) {
+      throw new Error('Customer ID is required');
+    }
+    
+    // Check for duplicate payment methods to avoid creating multiple identical cards
+    const existingMethods = await getPaymentMethods(customerId);
+    const isDuplicate = existingMethods.some(method => 
+      method.type === 'card' && method.stripeTokenId === cardToken
+    );
+    
+    if (isDuplicate) {
+      return {
+        success: false,
+        error: 'This card is already saved to your account'
+      };
+    }
+    
+    // Limit the number of payment methods per customer (e.g., max 5 cards)
+    const cardMethods = existingMethods.filter(method => method.type === 'card');
+    if (cardMethods.length >= 5) {
+      return {
+        success: false,
+        error: 'Maximum number of cards reached (5). Please remove an existing card before adding a new one.'
+      };
+    }
+    
     const response = await fetch('/api/stripe/create-card-payment-method', {
       method: 'POST',
       headers: {
@@ -199,6 +232,37 @@ export async function createBankPaymentMethod(
   isDefault: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Validate inputs
+    if (!paymentMethodId) {
+      throw new Error('Payment method ID is required');
+    }
+    
+    if (!customerId) {
+      throw new Error('Customer ID is required');
+    }
+    
+    // Check for duplicate payment methods to avoid creating multiple identical bank accounts
+    const existingMethods = await getPaymentMethods(customerId);
+    const isDuplicate = existingMethods.some(method => 
+      method.type === 'bank_account' && method.id === paymentMethodId
+    );
+    
+    if (isDuplicate) {
+      return {
+        success: false,
+        error: 'This bank account is already saved to your account'
+      };
+    }
+    
+    // Limit the number of bank accounts per customer (e.g., max 3 bank accounts)
+    const bankMethods = existingMethods.filter(method => method.type === 'bank_account');
+    if (bankMethods.length >= 3) {
+      return {
+        success: false,
+        error: 'Maximum number of bank accounts reached (3). Please remove an existing bank account before adding a new one.'
+      };
+    }
+    
     const response = await fetch('/api/stripe/create-bank-payment-method', {
       method: 'POST',
       headers: {
@@ -256,6 +320,30 @@ export async function processACHDeposit(
     return { success: true };
   } catch (error) {
     console.error('Error processing ACH deposit:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// Update user's Stripe customer ID in their attributes
+export async function updateUserStripeCustomerId(
+  customerId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Import here to avoid circular dependencies
+    const { updateUserAttributes } = await import('aws-amplify/auth');
+    
+    await updateUserAttributes({
+      userAttributes: {
+        'custom:stripeCustomerId' : customerId
+      }
+    });
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating user Stripe customer ID:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

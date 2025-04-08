@@ -26,7 +26,13 @@
 //   },
 // });
 import { defineAuth } from "@aws-amplify/backend";
-
+import { addUserToGroup } from "../data/add-user-to-group/resource";
+import { removeUserFromGroup } from "../data/remove-user-from-group/resource";
+import { manageUsers } from "../data/manage-users/resource";
+import { manageUserGroups } from "../data/manage-user-groups/resource";
+import { listUsersInGroup } from "../data/list-users-in-group/resource";
+import { manageUserDevices } from "../data/manage-user-devices/resource";
+import { listUsers } from "../data/list-users/resource";
 /**
  * Define and configure your auth resource
  * @see https://docs.amplify.aws/gen2/build-a-backend/auth
@@ -82,4 +88,15 @@ export const auth = defineAuth({
       dataType: "String",
     },
   },
+  groups: ["ADMINS","USERS"],
+    
+  access: (allow) => [
+    allow.resource(addUserToGroup).to(["addUserToGroup"]),
+    allow.resource(removeUserFromGroup).to(["removeUserFromGroup"]),
+    allow.resource(manageUsers).to(["manageUsers"]),
+    allow.resource(manageUserGroups).to(["manageGroups"]),
+    allow.resource(listUsersInGroup).to(["listUsersInGroup"]),
+    allow.resource(manageUserDevices).to(["manageUserDevices"]),
+    allow.resource(listUsers).to(["listUsers"])
+  ],
 });

@@ -17,7 +17,6 @@ import "@aws-amplify/ui-react/styles.css";
 
 // Amplify.configure(outputs);
 
-const client = generateClient<Schema>();
 
 export default function Home() {
   const router = useRouter();
@@ -413,36 +412,37 @@ export default function Home() {
             {/* Roll Size Selection */}
             <div className="mb-6">
               <h3 className="text-lg font-medium mb-2">Select Roll Size</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <button 
-                  className={`p-3 border ${selectedSize === '396l-21w' ? 'border-gray-800 bg-gray-100' : 'border-gray-300'} rounded-lg text-sm`}
-                  onClick={() => setSelectedSize('396l-21w')}
+              <div className="relative">
+                <select
+                  className="w-full p-3 border border-gray-300 rounded-lg text-sm appearance-none bg-white pr-10"
+                  value={selectedSize}
+                  onChange={(e) => setSelectedSize(e.target.value)}
                 >
-                  <span className="font-medium">Standard</span>
-                  <p className="text-xs text-gray-500">21" wide x 396" long</p>
-                </button>
-                <button 
-                  className={`p-3 border ${selectedSize === '396l-42w' ? 'border-gray-800 bg-gray-100' : 'border-gray-300'} rounded-lg text-sm`}
-                  onClick={() => setSelectedSize('396l-42w')}
-                >
-                  <span className="font-medium">Double Width</span>
-                  <p className="text-xs text-gray-500">42" wide x 396" long</p>
-                </button>
-                <button 
-                  className={`p-3 border ${selectedSize === '600l-42w' ? 'border-gray-800 bg-gray-100' : 'border-gray-300'} rounded-lg text-sm`}
-                  onClick={() => setSelectedSize('600l-42w')}
-                >
-                  <span className="font-medium">Extra Long</span>
-                  <p className="text-xs text-gray-500">42" wide x 600" long</p>
-                </button>
-                <button 
-                  className={`p-3 border ${selectedSize === '1200l-42w' ? 'border-gray-800 bg-gray-100' : 'border-gray-300'} rounded-lg text-sm`}
-                  onClick={() => setSelectedSize('1200l-42w')}
-                >
-                  <span className="font-medium">Commercial</span>
-                  <p className="text-xs text-gray-500">42" wide x 1200" long</p>
-                </button>
+                  <option value="396l-21w">
+                    Standard (21" wide x 396" long)
+                  </option>
+                  <option value="396l-42w">
+                    Double Width (42" wide x 396" long)
+                  </option>
+                  <option value="600l-42w">
+                    Extra Long (42" wide x 600" long)
+                  </option>
+                  <option value="1200l-42w">
+                    Commercial (42" wide x 1200" long)
+                  </option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                  </svg>
+                </div>
               </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {selectedSize === '396l-21w' && "Standard size for most residential applications"}
+                {selectedSize === '396l-42w' && "Double width for wider wall coverage"}
+                {selectedSize === '600l-42w' && "Extra long for taller walls or larger rooms"}
+                {selectedSize === '1200l-42w' && "Commercial size for business applications"}
+              </p>
             </div>
             
             {/* Wallpaper Simulation */}

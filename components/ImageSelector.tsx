@@ -3,21 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from './LoadingSpinner';
-
-interface ImageSelectorProps {
-  images: string[];
-  onImageSelect: (imageUrl: string) => void;
-  isGenerating: boolean;
-}
-
-interface ImageUrlMap {
-  gridImage: string;
-  image1: string;
-  image2: string;
-  image3: string;
-  image4: string;
-  [key: string]: string;
-}
+import { ImageSelectorProps, ImageUrlMap } from '@/types/wallpaperUI';
 
 const ImageSelector: React.FC<ImageSelectorProps> = ({ images, onImageSelect, isGenerating }) => {
   const router = useRouter();

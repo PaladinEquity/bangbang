@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'react-hot-toast';
 
 // Tab component for settings navigation
 const SettingsTab = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
@@ -220,7 +221,7 @@ export default function SettingsPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // In a real application, you would save the settings to your backend
-    alert('Settings saved successfully!');
+    toast.success('Settings saved successfully!');
   };
 
   return (

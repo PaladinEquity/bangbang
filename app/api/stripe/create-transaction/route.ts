@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize the Amplify data client
-    const client = generateClient<Schema>();
+    const client = generateClient<Schema>({authMode: 'userPool'});
 
     // Update the wallet balance directly without creating a Transaction record
     const walletResponse = await client.models.Wallet.list({

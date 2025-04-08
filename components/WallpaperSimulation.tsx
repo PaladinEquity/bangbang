@@ -2,14 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import LoadingSpinner from './LoadingSpinner';
-
-
-interface WallpaperSimulationProps {
-  imageUrl?: string;
-  onScaleChange?: (scale: number) => void;
-  selectedRollSize?: string;
-  onImageLoad?: () => void;
-}
+import { WallpaperSimulationProps } from '@/types/wallpaperUI';
 
 export default function WallpaperSimulation({ imageUrl, onScaleChange, selectedRollSize = '396l-21w', onImageLoad }: WallpaperSimulationProps) {
   const [currentScaleFactor, setCurrentScaleFactor] = useState(1);

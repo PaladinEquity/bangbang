@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import { getAllOrders } from '@/services/adminService';
+import { getAllOrders, updateOrderStatus, getOrderStats, getOrdersCount } from '@/services/adminService';
 import { OrderData } from '@/types/order';
+import OrderStats from '@/components/admin/OrderStats';
+import PaginationControls from '@/components/admin/PaginationControls';
 
 
 // Order status badge component
@@ -63,8 +65,8 @@ const OrderDetailModal = ({ order, onClose, onUpdateStatus }: OrderDetailModalPr
     
     setIsUpdating(true);
     try {
-      // In a real implementation, call API to update order status
-      // For now, just update locally
+      // Call the API to update order status
+      await updateOrderStatus(order.id, newStatus);
       onUpdateStatus(order.id, newStatus);
       toast.success(`Order status updated to ${newStatus}`);
       onClose();
@@ -206,88 +208,177 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('date');
+  const [sortOrder, setSortOrder] = useState('desc');
   const [selectedOrder, setSelectedOrder] = useState<OrderData | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [nextToken, setNextToken] = useState<string | undefined>(undefined);
+  const [prevTokens, setPrevTokens] = useState<string[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [orderStats, setOrderStats] = useState<{
+    totalOrders: number;
+    pendingOrders: number;
+    totalRevenue: number;
+    averageOrderValue: number;
+    currentMonthRevenue: number;
+  }>({totalOrders: 0, pendingOrders: 0, totalRevenue: 0, averageOrderValue: 0, currentMonthRevenue: 0});
+  const [totalItems, setTotalItems] = useState(0);
+  const ordersPerPage = 10;
 
+  // Function to convert date filter to actual date range
+  const getDateRangeFromFilter = (filter: string) => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+    
+    switch (filter) {
+      case 'today': {
+        const startOfToday = new Date(today);
+        startOfToday.setHours(0, 0, 0, 0);
+        return { dateFrom: startOfToday.toISOString(), dateTo: today.toISOString() };
+      }
+      case 'yesterday': {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        yesterday.setHours(23, 59, 59, 999);
+        
+        const startOfYesterday = new Date(yesterday);
+        startOfYesterday.setHours(0, 0, 0, 0);
+        
+        return { dateFrom: startOfYesterday.toISOString(), dateTo: yesterday.toISOString() };
+      }
+      case 'last7days': {
+        const lastWeek = new Date(today);
+        lastWeek.setDate(lastWeek.getDate() - 7);
+        lastWeek.setHours(0, 0, 0, 0);
+        
+        return { dateFrom: lastWeek.toISOString(), dateTo: today.toISOString() };
+      }
+      case 'last30days': {
+        const lastMonth = new Date(today);
+        lastMonth.setDate(lastMonth.getDate() - 30);
+        lastMonth.setHours(0, 0, 0, 0);
+        
+        return { dateFrom: lastMonth.toISOString(), dateTo: today.toISOString() };
+      }
+      default:
+        return {};
+    }
+  };
+
+  // Function to fetch orders with current filters and pagination
+  const fetchOrders = async (token: string | undefined = undefined, isNewSearch: boolean = false) => {
+    try {
+      setIsLoading(true);
+      
+      // Prepare filters
+      const filters: any = {};
+      
+      if (statusFilter !== 'all') {
+        filters.status = statusFilter;
+      }
+      
+      if (paymentFilter !== 'all') {
+        filters.paymentStatus = paymentFilter;
+      }
+      
+      // Add date range if date filter is set
+      if (dateFilter !== 'all') {
+        const dateRange = getDateRangeFromFilter(dateFilter);
+        if (dateRange.dateFrom) filters.dateFrom = dateRange.dateFrom;
+        if (dateRange.dateTo) filters.dateTo = dateRange.dateTo;
+      }
+      
+      // Add search term if provided
+      if (searchTerm.trim() !== '') {
+        filters.searchTerm = searchTerm.trim();
+      }
+      
+      // Fetch orders with pagination
+      const result = await getAllOrders({
+        filters,
+        limit: ordersPerPage,
+        nextToken: token,
+        sortBy,
+        sortOrder: sortOrder as 'asc' | 'desc'
+      });
+      
+      // If this is a new search/filter, reset pagination state and fetch stats
+      if (isNewSearch) {
+        setOrders(result.orders);
+        setPrevTokens([]);
+        setNextToken(result?.nextToken || undefined);
+        setCurrentPage(1);
+        
+        // Fetch order statistics with the same filters
+        try {
+          const stats = await getOrderStats(filters);
+          setOrderStats(stats);
+          
+          // Get total count of orders that match the filters
+          const count = await getOrdersCount(filters);
+          setTotalItems(count);
+        } catch (statsError) {
+          console.error('Error fetching order statistics:', statsError);
+        }
+      } else {
+        setOrders(result.orders);
+        setNextToken(result?.nextToken || undefined);
+      }
+      
+      // Update hasMore flag
+      setHasMore(!!result.nextToken);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      toast.error('Failed to load orders');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initial fetch
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        setIsLoading(true);
-        const orderData = await getAllOrders();
-        // Sort by date, with newest first
-        orderData.sort((a, b) => {
-          const dateA = a.orderDate ? new Date(a.orderDate).getTime() : 0;
-          const dateB = b.orderDate ? new Date(b.orderDate).getTime() : 0;
-          return dateB - dateA;
-        });
-        setOrders(orderData);
-      } catch (error) {
-        console.error('Error fetching orders:', error);
-        toast.error('Failed to load orders');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchOrders();
+    fetchOrders(undefined, true);
   }, []);
-
-  // Filter orders based on search term and filters
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = 
-      (order.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-      (order.userId?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
+  
+  // Handle filter changes
+  useEffect(() => {
+    fetchOrders(undefined, true);
+  }, [statusFilter, paymentFilter, dateFilter, sortBy, sortOrder]);
+  
+  // Handle search with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchOrders(undefined, true);
+    }, 500);
     
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    const matchesPayment = paymentFilter === 'all' || order.paymentStatus === paymentFilter;
-    
-    // Date filtering
-    let matchesDate = true;
-    if (order.orderDate) {
-      const orderDate = new Date(order.orderDate);
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      const lastWeek = new Date(today);
-      lastWeek.setDate(lastWeek.getDate() - 7);
-      
-      const lastMonth = new Date(today);
-      lastMonth.setMonth(lastMonth.getMonth() - 1);
-      
-      if (dateFilter === 'today') {
-        matchesDate = orderDate.toDateString() === today.toDateString();
-      } else if (dateFilter === 'yesterday') {
-        matchesDate = orderDate.toDateString() === yesterday.toDateString();
-      } else if (dateFilter === 'last7days') {
-        matchesDate = orderDate >= lastWeek;
-      } else if (dateFilter === 'last30days') {
-        matchesDate = orderDate >= lastMonth;
-      }
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+  
+  // Function to handle next page
+  const handleNextPage = () => {
+    if (nextToken) {
+      // Save current token to history for back navigation
+      setPrevTokens([...prevTokens, nextToken]);
+      fetchOrders(nextToken);
+      setCurrentPage(currentPage + 1);
     }
-    
-    return matchesSearch && matchesStatus && matchesPayment && matchesDate;
-  });
-
-  // Prioritize pending and processing orders
-  const prioritizedOrders = [...filteredOrders].sort((a, b) => {
-    // First sort by priority status
-    const priorityOrder = { 'pending': 0, 'processing': 1 };
-    const aStatus = a.status as keyof typeof priorityOrder;
-    const bStatus = b.status as keyof typeof priorityOrder;
-    
-    if (priorityOrder[aStatus] !== undefined && priorityOrder[bStatus] !== undefined) {
-      return priorityOrder[aStatus] - priorityOrder[bStatus];
-    } else if (priorityOrder[aStatus] !== undefined) {
-      return -1; // a is priority, b is not
-    } else if (priorityOrder[bStatus] !== undefined) {
-      return 1; // b is priority, a is not
+  };
+  
+  // Function to handle previous page
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      const newPrevTokens = [...prevTokens];
+      const tokenToUse = newPrevTokens.length > 1 ? newPrevTokens[newPrevTokens.length - 2] : null;
+      newPrevTokens.pop();
+      
+      setPrevTokens(newPrevTokens);
+      fetchOrders(tokenToUse || undefined);
+      setCurrentPage(currentPage - 1);
     }
-    
-    // If neither is priority or both have same priority, sort by date
-    const dateA = a.orderDate ? new Date(a.orderDate).getTime() : 0;
-    const dateB = b.orderDate ? new Date(b.orderDate).getTime() : 0;
-    return dateB - dateA; // newest first
-  });
+  };
+  
+  // All filtering is now done server-side
+  const currentOrders = orders;
 
   // Handle order status update
   const handleUpdateStatus = (orderId: string, newStatus: string) => {
@@ -302,7 +393,7 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <div className="mb-8 flex justify-between items-center">
+      <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Order Management</h1>
           <p className="text-gray-600 mt-1">Track and manage customer orders</p>
@@ -315,6 +406,11 @@ export default function OrdersPage() {
             Export Orders
           </button>
         </div>
+      </div>
+      
+      {/* Order Statistics */}
+      <div className="mb-6">
+        <OrderStats orders={orders} totalStats={orderStats} />
       </div>
 
       {/* Filters and search */}
@@ -355,11 +451,11 @@ export default function OrdersPage() {
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value)}
             >
-              <option value="all">All Payment Statuses</option>
+              <option value="all">All Payments</option>
               <option value="paid">Paid</option>
               <option value="unpaid">Unpaid</option>
               <option value="refunded">Refunded</option>
-              <option value="partial">Partially Paid</option>
+              <option value="partial">Partial</option>
             </select>
           </div>
           <div>
@@ -378,6 +474,33 @@ export default function OrdersPage() {
             </select>
           </div>
         </div>
+        
+        {/* Sort options */}
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <div className="flex items-center">
+            <span className="text-sm font-medium text-gray-700 mr-2">Sort by:</span>
+            <select
+              className="p-2 border border-gray-300 rounded-md"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <option value="date">Date</option>
+              <option value="amount">Amount</option>
+              <option value="status">Status</option>
+            </select>
+          </div>
+          <div className="flex items-center">
+            <span className="text-sm font-medium text-gray-700 mr-2">Order:</span>
+            <select
+              className="p-2 border border-gray-300 rounded-md"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+            >
+              <option value="desc">Newest First</option>
+              <option value="asc">Oldest First</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Orders table */}
@@ -387,67 +510,79 @@ export default function OrdersPage() {
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading orders...</p>
           </div>
-        ) : prioritizedOrders.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Order
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Payment
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {prioritizedOrders.map((order) => (
-                  <tr key={order.id} className={order.status === 'pending' ? 'bg-yellow-50' : ''}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {order.orderNumber || `Order ${order.id?.substring(0, 8)}`}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {order.userId ? `User: ${order.userId.substring(0, 8)}...` : 'Guest'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : 'Unknown'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={order.status || 'pending'} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <PaymentBadge status={order.paymentStatus || 'unpaid'} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      ${order.totalAmount?.toFixed(2) || '0.00'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => setSelectedOrder(order)}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        View Details
-                      </button>
-                    </td>
+        ) : currentOrders.length > 0 ? (
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Order
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Payment
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentOrders.map((order) => (
+                    <tr key={order.id} className={order.status === 'pending' ? 'bg-yellow-50' : ''}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {order.orderNumber || `Order ${order.id?.substring(0, 8)}`}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {order.userId ? `User: ${order.userId.substring(0, 8)}...` : 'Guest'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : 'Unknown'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusBadge status={order.status || 'pending'} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <PaymentBadge status={order.paymentStatus || 'unpaid'} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        ${order.totalAmount?.toFixed(2) || '0.00'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => setSelectedOrder(order)}
+                          className="text-indigo-600 hover:text-indigo-900"
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Pagination controls */}
+            <PaginationControls
+              currentPage={currentPage}
+              hasMore={hasMore}
+              isLoading={isLoading}
+              onPrevPage={handlePrevPage}
+              onNextPage={handleNextPage}
+              totalItems={totalItems}
+            />
+          </>
         ) : (
           <div className="p-8 text-center">
             <p className="text-gray-500">No orders found matching your filters.</p>
