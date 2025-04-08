@@ -1,9 +1,6 @@
 /**
  * Order related type definitions
  */
-
-import { Wallpaper } from './ui';
-
 export type OrderItem = {
   id: string;
   orderId: string;
