@@ -7,6 +7,7 @@ import { getAllOrders, updateOrderStatus, getOrderStats, getOrdersCount } from '
 import { OrderData } from '@/types/order';
 import OrderStats from '@/components/admin/OrderStats';
 import PaginationControls from '@/components/admin/PaginationControls';
+import BatchOrderActions from '@/components/admin/BatchOrderActions';
 
 
 // Order status badge component
@@ -215,6 +216,8 @@ export default function OrdersPage() {
   const [nextToken, setNextToken] = useState<string | undefined>(undefined);
   const [prevTokens, setPrevTokens] = useState<string[]>([]);
   const [hasMore, setHasMore] = useState(true);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
   const [orderStats, setOrderStats] = useState<{
     totalOrders: number;
     pendingOrders: number;
@@ -390,6 +393,45 @@ export default function OrdersPage() {
       return order;
     }));
   };
+  
+  // Handle selection of all orders
+  const handleSelectAll = () => {
+    const newSelectAll = !selectAll;
+    setSelectAll(newSelectAll);
+    
+    if (newSelectAll) {
+      // Select all visible orders that have IDs
+      const allOrderIds = currentOrders
+        .filter(order => order.id)
+        .map(order => order.id as string);
+      setSelectedOrders(allOrderIds);
+    } else {
+      // Deselect all
+      setSelectedOrders([]);
+    }
+  };
+  
+  // Handle selection of a single order
+  const handleSelectOrder = (orderId: string, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedOrders(prev => [...prev, orderId]);
+    } else {
+      setSelectedOrders(prev => prev.filter(id => id !== orderId));
+      // If we're deselecting an order, also uncheck the "select all" checkbox
+      if (selectAll) {
+        setSelectAll(false);
+      }
+    }
+  };
+  
+  // Handle batch status update completion
+  const handleBatchUpdateComplete = () => {
+    // Refresh the orders list
+    fetchOrders(undefined, true);
+    // Clear selections
+    setSelectedOrders([]);
+    setSelectAll(false);
+  };
 
   return (
     <div>
@@ -399,6 +441,11 @@ export default function OrdersPage() {
           <p className="text-gray-600 mt-1">Track and manage customer orders</p>
         </div>
         <div className="flex space-x-2">
+          <BatchOrderActions 
+            selectedOrders={selectedOrders}
+            onStatusUpdated={handleBatchUpdateComplete}
+            disabled={isLoading}
+          />
           <button 
             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
             onClick={() => window.print()}
@@ -516,6 +563,16 @@ export default function OrdersPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                          checked={selectAll}
+                          onChange={handleSelectAll}
+                        />
+                      </div>
+                    </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Order
                     </th>
@@ -539,6 +596,17 @@ export default function OrdersPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {currentOrders.map((order) => (
                     <tr key={order.id} className={order.status === 'pending' ? 'bg-yellow-50' : ''}>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                            checked={order.id ? selectedOrders.includes(order.id) : false}
+                            onChange={(e) => order.id && handleSelectOrder(order.id, e.target.checked)}
+                            disabled={!order.id}
+                          />
+                        </div>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {order.orderNumber || `Order ${order.id?.substring(0, 8)}`}

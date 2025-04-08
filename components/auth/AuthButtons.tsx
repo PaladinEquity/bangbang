@@ -15,11 +15,17 @@ const AuthButtons = ({ isMobile = false, closeMobileMenu }: AuthButtonsProps) =>
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
 
-  const handleClickOutside = (event: MouseEvent) => {
-    if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
-      setShowUserDropdown(false);
-    }
-  };   
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   const userDropdownRef = React.useRef<HTMLDivElement>(null);
   
   const toggleUserDropdown = () => {

@@ -90,8 +90,8 @@ const Header = () => {
                 <Image
                   src="/logo.png"
                   alt="Killer Walls Logo"
-                  width={40}
-                  height={40}
+                  width={60}
+                  height={60}
                   className="mr-2"
                 />
                 <div className="flex flex-col">

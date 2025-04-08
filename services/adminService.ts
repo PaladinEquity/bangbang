@@ -1208,6 +1208,52 @@ export async function updateOrderStatus(orderId: string, status: string, payment
   }
 }
 
+// Update multiple orders' status at once
+export async function updateMultipleOrderStatus(orderIds: string[], status: string, paymentStatus?: string) {
+  try {
+    // Ensure we have valid credentials before making API calls
+    await ensureCredentials();
+    
+    // Process orders in parallel
+    const updatePromises = orderIds.map(async (orderId) => {
+      try {
+        // Prepare update data
+        const updateData: any = {
+          status
+        };
+        
+        // Add payment status if provided
+        if (paymentStatus) {
+          updateData.paymentStatus = paymentStatus;
+        }
+        
+        // Update the order
+        const response = await userPoolClient.models.CartOrder.update({
+          id: orderId,
+          ...updateData
+        });
+        
+        return response.data;
+      } catch (error) {
+        console.error(`Error updating order ${orderId}:`, error);
+        return null;
+      }
+    });
+    
+    const results = await Promise.all(updatePromises);
+    const successCount = results.filter(result => result !== null).length;
+    
+    return {
+      success: successCount > 0,
+      totalUpdated: successCount,
+      totalFailed: orderIds.length - successCount
+    };
+  } catch (error) {
+    console.error('Error in batch updating orders:', error);
+    throw error;
+  }
+}
+
 // Create a new user
 export async function createUser(userData: {
   username: string;
